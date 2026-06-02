@@ -22,6 +22,7 @@ import {
 import confetti from 'canvas-confetti';
 import { dbService } from './services/db';
 import appLogo from './assets/logo.png';
+import { SplashScreen } from '@capacitor/splash-screen';
 
 // Predefined list of emojis for custom habits
 const EMOJIS = ['🏃‍♂️', '💧', '📚', '🧘‍♂️', '🍎', '😴', '🧹', '🦷', '💊', '🚶‍♂️', '🍳', '💼', '🎨', '🎸', '🌱', '✍️', '🗣️', '🚭'];
@@ -118,8 +119,6 @@ export default function App() {
   // --- States ---
   const [habits, setHabits] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showSplash, setShowSplash] = useState(true);
-  const [splashFadeOut, setSplashFadeOut] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [weekDates, setWeekDates] = useState([]);
@@ -147,14 +146,12 @@ export default function App() {
       } catch (err) {
         console.error("Failed to initialize database", err);
       } finally {
-        // Start the zoom-through transition immediately after db loads (with a tiny 150ms buffer to settle)
-        setTimeout(() => {
-          setIsLoading(false);
-          setSplashFadeOut(true);
-          setTimeout(() => {
-            setShowSplash(false);
-          }, 350); // transition duration
-        }, 150);
+        setIsLoading(false);
+        try {
+          await SplashScreen.hide();
+        } catch (e) {
+          console.warn("Native SplashScreen not available", e);
+        }
       }
     };
     
@@ -1020,17 +1017,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* Initial Splash Screen */}
-      {showSplash && (
-        <div className={`splash-overlay ${splashFadeOut ? 'fade-out' : ''}`}>
-          <div className="splash-content">
-            <div className="splash-logo-container">
-              <img src={appLogo} alt="Logo" className="splash-logo-image" />
-            </div>
-          </div>
-        </div>
-      )}
-      
+
       {/* Header (Only show on root tabs) */}
       {(currentScreen === 'dashboard' || currentScreen === 'forest') && (
         <header className="app-header">
