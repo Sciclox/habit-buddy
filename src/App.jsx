@@ -147,14 +147,14 @@ export default function App() {
       } catch (err) {
         console.error("Failed to initialize database", err);
       } finally {
-        // Enforce the splash screen is visible for ~400ms, then fades out in 350ms
+        // Start the zoom-through transition immediately after db loads (with a tiny 150ms buffer to settle)
         setTimeout(() => {
+          setIsLoading(false);
           setSplashFadeOut(true);
           setTimeout(() => {
             setShowSplash(false);
-            setIsLoading(false);
           }, 350); // transition duration
-        }, 400); // show duration
+        }, 150);
       }
     };
     
@@ -1027,8 +1027,6 @@ export default function App() {
             <div className="splash-logo-container">
               <img src={appLogo} alt="Logo" className="splash-logo-image" />
             </div>
-            <h1 className="splash-title">HabitBuddy</h1>
-            <p className="splash-tagline">Siembra un hábito, cosecha un destino.</p>
           </div>
         </div>
       )}

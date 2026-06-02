@@ -1602,8 +1602,8 @@ body.dark-theme {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1.5rem;
-  animation: splashLogoFade 0.6s ease-out, float 3s ease-in-out infinite;
+  margin: 0;
+  animation: splashLogoFade 0.3s ease-out;
   overflow: hidden;
 }
 
