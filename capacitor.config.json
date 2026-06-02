@@ -1,0 +1,6 @@
+{
+  "appId": "com.habitbuddy.app",
+  "appName": "HabitBuddy",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
