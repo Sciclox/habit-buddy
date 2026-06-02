@@ -117,6 +117,8 @@ export default function App() {
   // --- States ---
   const [habits, setHabits] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
+  const [splashFadeOut, setSplashFadeOut] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [weekDates, setWeekDates] = useState([]);
@@ -144,7 +146,14 @@ export default function App() {
       } catch (err) {
         console.error("Failed to initialize database", err);
       } finally {
-        setIsLoading(false);
+        // Enforce the splash screen is visible for ~400ms, then fades out in 350ms
+        setTimeout(() => {
+          setSplashFadeOut(true);
+          setTimeout(() => {
+            setShowSplash(false);
+            setIsLoading(false);
+          }, 350); // transition duration
+        }, 400); // show duration
       }
     };
     
@@ -1010,6 +1019,18 @@ export default function App() {
 
   return (
     <div className="app-container">
+      {/* Initial Splash Screen */}
+      {showSplash && (
+        <div className={`splash-overlay ${splashFadeOut ? 'fade-out' : ''}`}>
+          <div className="splash-content">
+            <div className="splash-logo-container">
+              <span className="splash-emoji">🌳</span>
+            </div>
+            <h1 className="splash-title">HabitBuddy</h1>
+            <p className="splash-tagline">Siembra un hábito, cosecha un destino.</p>
+          </div>
+        </div>
+      )}
       
       {/* Header (Only show on root tabs) */}
       {(currentScreen === 'dashboard' || currentScreen === 'forest') && (

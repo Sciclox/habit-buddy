@@ -1531,3 +1531,92 @@ body.dark-theme {
   opacity: 0.7;
   margin-top: 0.05rem;
 }
+
+/* --- Initial Splash Screen --- */
+.splash-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  box-sizing: border-box;
+  opacity: 1;
+  transition: opacity 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+  background-attachment: fixed;
+}
+
+.light-theme .splash-overlay {
+  background-color: var(--bg-primary-light);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(255, 154, 139, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(0, 159, 253, 0.08) 0px, transparent 50%);
+}
+
+.dark-theme .splash-overlay {
+  background-color: var(--bg-primary-dark);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(255, 106, 136, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(33, 147, 176, 0.05) 0px, transparent 50%);
+}
+
+.splash-overlay.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  animation: splashPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes splashPop {
+  0% { transform: scale(0.7); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.splash-logo-container {
+  width: 100px;
+  height: 100px;
+  border-radius: 35px;
+  background: var(--gradient-coral);
+  box-shadow: 0 15px 40px rgba(255, 106, 136, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  animation: float 3s ease-in-out infinite;
+}
+
+.splash-emoji {
+  font-size: 3.2rem;
+}
+
+.splash-title {
+  margin: 0;
+  font-size: 2.2rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #FF6A88 0%, #764BA2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+
+.splash-tagline {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  opacity: 0.6;
+  text-align: center;
+  max-width: 250px;
+  line-height: 1.4;
+}
+.light-theme .splash-tagline { color: var(--text-muted-light); }
+.dark-theme .splash-tagline { color: var(--text-muted-dark); }
