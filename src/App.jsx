@@ -12,7 +12,8 @@ import {
   X,
   Volume2,
   VolumeX,
-  RotateCcw
+  RotateCcw,
+  Camera
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { dbService } from './services/db';
@@ -105,6 +106,7 @@ export default function App() {
   const [newHabitName, setNewHabitName] = useState('');
   const [newHabitEmoji, setNewHabitEmoji] = useState('🏃‍♂️');
   const [newHabitTheme, setNewHabitTheme] = useState('coral');
+  const [newHabitImage, setNewHabitImage] = useState(null); // base64 string
 
   // --- Initial Load ---
   useEffect(() => {
@@ -279,6 +281,18 @@ export default function App() {
     setHabits(updatedHabits);
   };
 
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Convert file to Base64
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setNewHabitImage(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleCreateHabit = async (e) => {
     e.preventDefault();
     if (!newHabitName.trim()) return;
@@ -290,7 +304,8 @@ export default function App() {
       theme: newHabitTheme,
       history: [],
       streak: 0,
-      bestStreak: 0
+      bestStreak: 0,
+      image: newHabitImage // base64 payload
     };
 
     // Save to SQLite
@@ -304,6 +319,7 @@ export default function App() {
     setNewHabitName('');
     setNewHabitEmoji('🏃‍♂️');
     setNewHabitTheme('coral');
+    setNewHabitImage(null);
     setShowModal(false);
     
     // Tiny celebration for new habit!
@@ -338,6 +354,15 @@ export default function App() {
       await dbService.resetAll();
       setHabits([]);
     }
+  };
+
+  // Close modal and reset fields
+  const handleCloseModal = () => {
+    setNewHabitName('');
+    setNewHabitEmoji('🏃‍♂️');
+    setNewHabitTheme('coral');
+    setNewHabitImage(null);
+    setShowModal(false);
   };
 
   // --- Statistics calculations ---
@@ -482,7 +507,12 @@ export default function App() {
                         className="habit-emoji-container" 
                         style={{ background: theme.gradient, boxShadow: `0 8px 20px ${theme.shadow}` }}
                       >
-                        {habit.emoji}
+                        {/* Render Base64 image if present, else emoji */}
+                        {habit.image ? (
+                          <img src={habit.image} alt={habit.name} className="habit-card-image" />
+                        ) : (
+                          habit.emoji
+                        )}
                       </div>
                       
                       <div className="habit-info-text">
@@ -565,11 +595,11 @@ export default function App() {
 
       {/* Add Habit Modal Sheet */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay" onClick={handleCloseModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h4>Nuevo Hábito</h4>
-              <button className="close-modal-btn" onClick={() => setShowModal(false)}>
+              <button className="close-modal-btn" onClick={handleCloseModal}>
                 <X size={20} />
               </button>
             </div>
@@ -591,22 +621,57 @@ export default function App() {
                 />
               </div>
 
-              {/* Emoji Selector */}
+              {/* Image upload preference */}
               <div className="form-group">
-                <label>Selecciona un ícono/emoji</label>
-                <div className="emoji-selector">
-                  {EMOJIS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      className={`emoji-option ${newHabitEmoji === emoji ? 'selected' : ''}`}
-                      onClick={() => setNewHabitEmoji(emoji)}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
+                <label>Foto de referencia (Opcional)</label>
+                <div className="image-upload-container">
+                  {newHabitImage ? (
+                    <div className="image-preview-wrapper animate-pop">
+                      <img src={newHabitImage} alt="Previsualización" className="image-upload-preview" />
+                      <button 
+                        type="button" 
+                        className="remove-image-btn" 
+                        onClick={() => setNewHabitImage(null)}
+                        title="Eliminar foto"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="image-upload-label">
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleImageUpload} 
+                        style={{ display: 'none' }}
+                      />
+                      <div className="upload-placeholder">
+                        <Camera size={16} style={{ marginRight: '6px' }} />
+                        <span>Subir foto de referencia</span>
+                      </div>
+                    </label>
+                  )}
                 </div>
               </div>
+
+              {/* Emoji Selector (only highlight or label if image is not uploaded) */}
+              {!newHabitImage && (
+                <div className="form-group">
+                  <label>O selecciona un emoji</label>
+                  <div className="emoji-selector">
+                    {EMOJIS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        className={`emoji-option ${newHabitEmoji === emoji ? 'selected' : ''}`}
+                        onClick={() => setNewHabitEmoji(emoji)}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Color Theme Selector */}
               <div className="form-group">
@@ -616,7 +681,7 @@ export default function App() {
                     <button
                       key={t.name}
                       type="button"
-                      className={`theme-option ${newHabitTheme === t.name ? 'selected' : ''}`}
+                      className={`theme-option ${t.name} ${newHabitTheme === t.name ? 'selected' : ''}`}
                       style={{ background: t.gradient }}
                       onClick={() => setNewHabitTheme(t.name)}
                     >

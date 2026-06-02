@@ -24,7 +24,8 @@ class DatabaseService {
             emoji TEXT NOT NULL,
             theme TEXT NOT NULL,
             streak INTEGER DEFAULT 0,
-            bestStreak INTEGER DEFAULT 0
+            bestStreak INTEGER DEFAULT 0,
+            image TEXT
           );
         `;
         const createHistoryTable = `
@@ -96,7 +97,8 @@ class DatabaseService {
             ...h,
             history: habitHistory,
             streak: Number(h.streak || 0),
-            bestStreak: Number(h.bestStreak || 0)
+            bestStreak: Number(h.bestStreak || 0),
+            image: h.image || null
           };
         });
       } catch (err) {
@@ -114,8 +116,8 @@ class DatabaseService {
     if (this.isNative) {
       try {
         const query = `
-          INSERT INTO habits (id, name, emoji, theme, streak, bestStreak)
-          VALUES (?, ?, ?, ?, ?, ?);
+          INSERT INTO habits (id, name, emoji, theme, streak, bestStreak, image)
+          VALUES (?, ?, ?, ?, ?, ?, ?);
         `;
         await this.db.run(query, [
           habit.id, 
@@ -123,7 +125,8 @@ class DatabaseService {
           habit.emoji, 
           habit.theme, 
           habit.streak || 0, 
-          habit.bestStreak || 0
+          habit.bestStreak || 0,
+          habit.image || null
         ]);
         console.log("Habit added to SQLite:", habit.name);
       } catch (err) {

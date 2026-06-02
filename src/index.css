@@ -534,6 +534,7 @@ body.dark-theme {
   justify-content: center;
   z-index: 100;
   animation: fadeIn 0.25s ease-out;
+  overflow-y: auto;
 }
 
 @keyframes fadeIn {
@@ -551,6 +552,10 @@ body.dark-theme {
   box-sizing: border-box;
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 -10px 35px rgba(0, 0, 0, 0.15);
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .dark-theme .modal-content {
@@ -636,14 +641,19 @@ body.dark-theme {
 
 /* Emoji Picker Custom */
 .emoji-selector {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  display: flex;
   gap: 0.6rem;
+  overflow-x: auto;
+  padding: 0.4rem 0.2rem;
   margin-top: 0.5rem;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 .emoji-option {
-  height: 48px;
+  flex: 0 0 46px;
+  height: 46px;
   border-radius: 14px;
   display: flex;
   align-items: center;
@@ -668,13 +678,19 @@ body.dark-theme {
 
 /* Theme Picker Custom */
 .theme-selector {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
   gap: 0.6rem;
+  overflow-x: auto;
+  padding: 0.4rem 0.2rem;
+  margin-top: 0.5rem;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 .theme-option {
-  height: 44px;
+  flex: 0 0 42px;
+  height: 42px;
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s;
@@ -763,4 +779,88 @@ body.dark-theme {
   .glass-panel {
     padding: 1.25rem 1rem;
   }
+}
+
+/* Habit Card Image styling */
+.habit-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 18px;
+}
+
+/* Image Upload Custom Elements */
+.image-upload-container {
+  margin-top: 0.5rem;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.image-upload-label {
+  display: block;
+  cursor: pointer;
+  width: 100%;
+}
+
+.upload-placeholder {
+  height: 48px;
+  border: 2px dashed rgba(0, 0, 0, 0.12);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.light-theme .upload-placeholder {
+  background: white;
+  color: var(--text-muted-light);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+.dark-theme .upload-placeholder {
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-muted-dark);
+}
+
+.upload-placeholder:hover {
+  border-color: #FF6A88;
+}
+
+.image-preview-wrapper {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 18px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.image-upload-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 18px;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s;
+  z-index: 5;
+}
+.remove-image-btn:active {
+  transform: scale(0.9);
 }
