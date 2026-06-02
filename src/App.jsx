@@ -15,6 +15,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { dbService } from './services/db';
 
 // Predefined list of emojis for custom habits
 const EMOJIS = ['🏃‍♂️', '💧', '📚', '🧘‍♂️', '🍎', '😴', '🧹', '🦷', '💊', '🚶‍♂️', '🍳', '💼', '🎨', '🎸', '🌱', '✍️', '🗣️', '🚭'];
@@ -94,6 +95,7 @@ const playPopSound = () => {
 export default function App() {
   // --- States ---
   const [habits, setHabits] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -109,39 +111,20 @@ export default function App() {
     // Set week dates
     setWeekDates(getCurrentWeekDates());
     
-    // Load habits from localStorage
-    const savedHabits = localStorage.getItem('habitbuddy_habits');
-    if (savedHabits) {
+    // Load Database and Fetch Habits
+    const initDbAndLoadHabits = async () => {
       try {
-        setHabits(JSON.parse(savedHabits));
-      } catch (e) {
-        console.error("Error loading habits from localStorage", e);
+        await dbService.init();
+        const loadedHabits = await dbService.getHabits();
+        setHabits(loadedHabits);
+      } catch (err) {
+        console.error("Failed to initialize database", err);
+      } finally {
+        setIsLoading(false);
       }
-    } else {
-      // Default sample habits for new users
-      const initialHabits = [
-        {
-          id: '1',
-          name: 'Tomar Agua',
-          emoji: '💧',
-          theme: 'ocean',
-          history: [formatDateLocal(new Date())],
-          streak: 1,
-          bestStreak: 1
-        },
-        {
-          id: '2',
-          name: 'Leer un libro',
-          emoji: '📚',
-          theme: 'purple',
-          history: [],
-          streak: 0,
-          bestStreak: 0
-        }
-      ];
-      setHabits(initialHabits);
-      localStorage.setItem('habitbuddy_habits', JSON.stringify(initialHabits));
-    }
+    };
+    
+    initDbAndLoadHabits();
 
     // Load sound preference
     const savedSound = localStorage.getItem('habitbuddy_sound');
@@ -163,13 +146,6 @@ export default function App() {
       document.body.classList.remove('dark-theme');
     }
   }, []);
-
-  // --- Save habits ---
-  useEffect(() => {
-    if (habits.length > 0) {
-      localStorage.setItem('habitbuddy_habits', JSON.stringify(habits));
-    }
-  }, [habits]);
 
   // --- Helper calculations ---
   const calculateStreak = (history) => {
@@ -253,60 +229,57 @@ export default function App() {
   };
 
   // --- Habits Actions ---
-  const handleToggleHabit = (habitId, dateStr, event) => {
-    const updatedHabits = habits.map(h => {
-      if (h.id !== habitId) return h;
+  const handleToggleHabit = async (habitId, dateStr, event) => {
+    const habit = habits.find(h => h.id === habitId);
+    if (!habit) return;
+    
+    const exists = habit.history.includes(dateStr);
+    let newHistory;
+    
+    if (exists) {
+      // Remove completion
+      newHistory = habit.history.filter(d => d !== dateStr);
+    } else {
+      // Add completion
+      newHistory = [...habit.history, dateStr];
       
-      const exists = h.history.includes(dateStr);
-      let newHistory;
-      
-      if (exists) {
-        // Remove completion
-        newHistory = h.history.filter(d => d !== dateStr);
-      } else {
-        // Add completion
-        newHistory = [...h.history, dateStr];
+      // Trigger completion feedback if completed date is today/past
+      const isToday = dateStr === formatDateLocal(new Date());
+      if (isToday) {
+        if (soundEnabled) playPopSound();
         
-        // Trigger completion feedback if completed date is today/past
-        const isToday = dateStr === formatDateLocal(new Date());
-        if (isToday) {
-          if (soundEnabled) playPopSound();
-          
-          // Trigger canvas confetti at click location (if event provided)
-          if (event) {
-            const x = event.clientX / window.innerWidth;
-            const y = event.clientY / window.innerHeight;
-            confetti({
-              particleCount: 50,
-              spread: 60,
-              origin: { x, y },
-              colors: ['#FF9A8B', '#FF6A88', '#FF99AC', '#43CB73', '#009EFD', '#F76B1C', '#B176FC']
-            });
-          } else {
-            confetti({
-              particleCount: 80,
-              spread: 60,
-              origin: { y: 0.8 }
-            });
-          }
+        // Trigger canvas confetti at click location (if event provided)
+        if (event) {
+          const x = event.clientX / window.innerWidth;
+          const y = event.clientY / window.innerHeight;
+          confetti({
+            particleCount: 50,
+            spread: 60,
+            origin: { x, y },
+            colors: ['#FF9A8B', '#FF6A88', '#FF99AC', '#43CB73', '#009EFD', '#F76B1C', '#B176FC']
+          });
+        } else {
+          confetti({
+            particleCount: 80,
+            spread: 60,
+            origin: { y: 0.8 }
+          });
         }
       }
-      
-      const currentStreak = calculateStreak(newHistory);
-      const bestStreak = calculateBestStreak(newHistory, h.bestStreak);
-      
-      return {
-        ...h,
-        history: newHistory,
-        streak: currentStreak,
-        bestStreak: bestStreak
-      };
-    });
+    }
     
+    const currentStreak = calculateStreak(newHistory);
+    const bestStreak = calculateBestStreak(newHistory, habit.bestStreak);
+    
+    // Save to SQLite
+    await dbService.saveHabitHistory(habitId, newHistory, currentStreak, bestStreak);
+    
+    // Refresh habits from SQLite to update React UI state
+    const updatedHabits = await dbService.getHabits();
     setHabits(updatedHabits);
   };
 
-  const handleCreateHabit = (e) => {
+  const handleCreateHabit = async (e) => {
     e.preventDefault();
     if (!newHabitName.trim()) return;
 
@@ -320,9 +293,12 @@ export default function App() {
       bestStreak: 0
     };
 
-    const updatedHabits = [...habits, newHabit];
+    // Save to SQLite
+    await dbService.addHabit(newHabit);
+    
+    // Refresh habits
+    const updatedHabits = await dbService.getHabits();
     setHabits(updatedHabits);
-    localStorage.setItem('habitbuddy_habits', JSON.stringify(updatedHabits));
 
     // Reset fields & close
     setNewHabitName('');
@@ -345,18 +321,22 @@ export default function App() {
     });
   };
 
-  const handleDeleteHabit = (habitId) => {
+  const handleDeleteHabit = async (habitId) => {
     if (window.confirm('¿Estás seguro de que quieres eliminar este hábito?')) {
-      const updatedHabits = habits.filter(h => h.id !== habitId);
+      // Delete from SQLite
+      await dbService.deleteHabit(habitId);
+      
+      // Refresh habits
+      const updatedHabits = await dbService.getHabits();
       setHabits(updatedHabits);
-      localStorage.setItem('habitbuddy_habits', JSON.stringify(updatedHabits));
     }
   };
 
-  const handleResetAll = () => {
+  const handleResetAll = async () => {
     if (window.confirm('¿Quieres reiniciar todos tus hábitos y progreso? Esta acción no se puede deshacer.')) {
+      // Reset database
+      await dbService.resetAll();
       setHabits([]);
-      localStorage.removeItem('habitbuddy_habits');
     }
   };
 
@@ -375,6 +355,16 @@ export default function App() {
   
   // Total completions overall
   const totalCompletionsCount = habits.reduce((acc, h) => acc + h.history.length, 0);
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: '1rem', color: 'var(--text-main-light)' }}>
+        <div style={{ fontSize: '2.5rem', animation: 'float 2s ease-in-out infinite' }}>🌱</div>
+        <h3 style={{ margin: 0, fontWeight: 600 }}>Cargando HabitBuddy...</h3>
+        <p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.6 }}>Iniciando base de datos SQLite</p>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">

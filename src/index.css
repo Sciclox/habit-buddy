@@ -74,7 +74,7 @@ body.dark-theme {
   max-width: 480px;
   margin: 0 auto;
   min-height: 100vh;
-  padding: 1.5rem 1rem 6rem 1rem;
+  padding: calc(2.5rem + env(safe-area-inset-top, 0px)) 1rem calc(7.5rem + env(safe-area-inset-bottom, 0px)) 1rem;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -493,7 +493,7 @@ body.dark-theme {
 /* Floating Action Button (FAB) */
 .fab {
   position: fixed;
-  bottom: 1.5rem;
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 2rem);
@@ -758,7 +758,7 @@ body.dark-theme {
 /* Custom styles for mobile apps */
 @media (max-width: 480px) {
   .app-container {
-    padding: 1rem 0.75rem 6.5rem 0.75rem;
+    padding: calc(2rem + env(safe-area-inset-top, 0px)) 0.75rem calc(7rem + env(safe-area-inset-bottom, 0px)) 0.75rem;
   }
   .glass-panel {
     padding: 1.25rem 1rem;
