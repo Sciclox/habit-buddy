@@ -1548,6 +1548,15 @@ body.dark-theme {
   opacity: 1;
   transition: opacity 0.35s cubic-bezier(0.25, 1, 0.5, 1);
   background-attachment: fixed;
+  
+  /* Fallback solid backgrounds to prevent transparent flash before body theme mounts */
+  background-color: #f5f7fb;
+}
+
+@media (prefers-color-scheme: dark) {
+  .splash-overlay {
+    background-color: #0d1117;
+  }
 }
 
 .light-theme .splash-overlay {
@@ -1581,14 +1590,7 @@ body.dark-theme {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  animation: splashPop 0.8s cubic-bezier(0.25, 1, 0.5, 1);
   transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease-out;
-}
-
-/* Icon starts at size 0 (tiny dot) and expands to full splash screen size */
-@keyframes splashPop {
-  0% { transform: scale(0); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
 }
 
 .splash-logo-container {
@@ -1601,8 +1603,13 @@ body.dark-theme {
   align-items: center;
   justify-content: center;
   margin-bottom: 1.5rem;
-  animation: float 3s ease-in-out infinite;
+  animation: splashLogoFade 0.6s ease-out, float 3s ease-in-out infinite;
   overflow: hidden;
+}
+
+@keyframes splashLogoFade {
+  from { opacity: 0.5; }
+  to { opacity: 1; }
 }
 
 .splash-logo-image {
@@ -1620,6 +1627,7 @@ body.dark-theme {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: -0.5px;
+  animation: splashTextSlideUp 0.8s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .splash-tagline {
@@ -1630,6 +1638,12 @@ body.dark-theme {
   text-align: center;
   max-width: 250px;
   line-height: 1.4;
+  animation: splashTextSlideUp 0.9s cubic-bezier(0.25, 1, 0.5, 1);
 }
 .light-theme .splash-tagline { color: var(--text-muted-light); }
 .dark-theme .splash-tagline { color: var(--text-muted-dark); }
+
+@keyframes splashTextSlideUp {
+  0% { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
