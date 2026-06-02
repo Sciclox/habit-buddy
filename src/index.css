@@ -1195,3 +1195,171 @@ body.dark-theme {
 .delete-habit-full-btn:active {
   transform: scale(0.98);
 }
+
+/* --- V3 Full-Cover Images & 3D Tree Section --- */
+
+/* Full cover image habit cards */
+.habit-card-image-bg {
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+}
+
+.habit-card-image-bg .habit-title {
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.habit-card-image-bg .habit-streak {
+  color: rgba(255, 255, 255, 0.9) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.habit-card-image-bg .card-tree-badge {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.habit-card-image-bg .day-label {
+  color: rgba(255, 255, 255, 0.8) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.habit-card-image-bg .day-dot.empty {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff;
+}
+
+.habit-card-image-bg .day-dot.future {
+  border: 1px dashed rgba(255, 255, 255, 0.3) !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Detail view Full-bleed image header banner */
+.detail-image-banner {
+  height: 240px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  padding: 1.5rem 1rem;
+  box-sizing: border-box;
+  margin-bottom: 0.5rem;
+}
+
+.back-btn-floating {
+  position: absolute;
+  top: calc(1rem + env(safe-area-inset-top, 0px));
+  left: 1rem;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.back-btn-floating:active {
+  transform: scale(0.9);
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.banner-overlay-text {
+  color: white;
+  width: 100%;
+  z-index: 2;
+}
+
+.banner-overlay-text h2 {
+  margin: 0 0 0.4rem 0;
+  font-size: 1.7rem;
+  font-weight: 700;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
+}
+
+.banner-diff-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  display: inline-block;
+}
+
+/* 3D Tree Section Card */
+.tree-3d-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem;
+}
+
+.tree-3d-section .section-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  align-self: flex-start;
+}
+
+.canvas-3d-wrapper {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+  border-radius: 50%;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  transition: transform 0.3s;
+}
+
+.tree-details-footer {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  width: 100%;
+}
+
+.tree-desc-text {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  margin: 0.5rem 0 0 0;
+  line-height: 1.4;
+}
+
+/* Nourish Button */
+.nourish-btn {
+  width: 100%;
+  height: 48px;
+  border-radius: 14px;
+  border: none;
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.nourish-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+.nourish-btn:active {
+  transform: translateY(0) scale(0.97);
+}

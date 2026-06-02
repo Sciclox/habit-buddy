@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, 
   Moon, 
@@ -46,11 +46,7 @@ const formatDateLocal = (date) => {
 const getCurrentWeekDates = () => {
   const dates = [];
   const today = new Date();
-  
-  // Get current day (0 for Sun, 1 for Mon, etc.)
   const dayOfWeek = today.getDay();
-  
-  // Calculate difference to last Monday (Monday as start)
   const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   
   const monday = new Date(today);
@@ -75,15 +71,15 @@ const getTreePhase = (completionsCount, targetDays) => {
   const percentage = Math.min((completionsCount / targetDays) * 100, 100);
   
   if (percentage <= 10) {
-    return { phase: 1, name: 'Semilla', icon: '🟤', desc: 'Semilla sembrada en tierra. ¡Da tu primer paso!', range: '0-10%' };
+    return { phase: 1, name: 'Semilla', icon: '🟤', desc: 'Semilla sembrada en tierra. ¡Nutre tu hábito para brotar!', range: '0-10%' };
   } else if (percentage <= 30) {
-    return { phase: 2, name: 'Brote', icon: '🌱', desc: '¡El primer brote está saliendo a la superficie!', range: '11-30%' };
+    return { phase: 2, name: 'Brote', icon: '🌱', desc: '¡El primer brote está asomando! Sigue adelante.', range: '11-30%' };
   } else if (percentage <= 60) {
-    return { phase: 3, name: 'Plántula', icon: '🌿', desc: 'Tu planta está creciendo y fortaleciendo sus hojas.', range: '31-60%' };
+    return { phase: 3, name: 'Plántula', icon: '🌿', desc: 'Tu planta tiene hojas jóvenes. Sigue alimentándola.', range: '31-60%' };
   } else if (percentage <= 90) {
     return { phase: 4, name: 'Árbol Joven', icon: '🌳', desc: 'Un árbol joven y firme. El hábito casi está automatizado.', range: '61-90%' };
   } else {
-    return { phase: 5, name: 'Árbol en Flor', icon: '🌳🌸', desc: '¡Floración completa! Hábito plenamente consolidado en tu mente.', range: '91-100%' };
+    return { phase: 5, name: 'Árbol Florecido', icon: '🌳🌸', desc: '¡Espectacular! Hábito plenamente consolidado en tu rutina.', range: '91-100%' };
   }
 };
 
@@ -111,6 +107,207 @@ const playPopSound = () => {
   }
 };
 
+// ----------------------------------------------------
+// 🌳 3D Canvas Tree Component with Nourishing Particles
+// ----------------------------------------------------
+export function Tree3D({ progressPct, triggerNourish, themeColor }) {
+  const canvasRef = useRef(null);
+  const particles = useRef([]);
+  const pulseFactor = useRef(1);
+  const rotationAngle = useRef(0);
+
+  // Trigger nourish animation (spawns falling glowing particles)
+  useEffect(() => {
+    if (triggerNourish > 0) {
+      // Spawn 35 particles falling down
+      for (let i = 0; i < 35; i++) {
+        particles.current.push({
+          x: Math.random() * 240 + 10,
+          y: Math.random() * -60 - 5, // above canvas view
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: Math.random() * 1.8 + 1.2,
+          size: Math.random() * 3 + 2,
+          color: i % 2 === 0 ? '#ffd700' : '#4ade80', // Alternate Gold and Green glows
+          alpha: 1.0
+        });
+      }
+      pulseFactor.current = 1.2; // Trigger pulse zoom effect
+    }
+  }, [triggerNourish]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let animationFrameId;
+
+    const render = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Slow Y-axis rotation over time
+      rotationAngle.current += 0.006;
+      
+      // Slowly decay the branch scale pulse
+      if (pulseFactor.current > 1) {
+        pulseFactor.current -= 0.008;
+      }
+
+      const width = canvas.width;
+      const height = canvas.height;
+      const startX = width / 2;
+      const startY = height - 25;
+
+      // Draw soil base pot
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(startX, startY + 5, 45, 12, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.06)';
+      ctx.fill();
+      ctx.restore();
+
+      // Update and draw particles
+      particles.current.forEach((p) => {
+        p.y += p.vy;
+        p.x += p.vx;
+        // Light gravity pull towards trunk center
+        p.vx += (startX - p.x) * 0.0008;
+        p.alpha -= 0.007;
+        
+        ctx.save();
+        ctx.globalAlpha = Math.max(p.alpha, 0);
+        ctx.fillStyle = p.color;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // Filter dead/out-of-bounds particles
+      particles.current = particles.current.filter(p => p.alpha > 0 && p.y < startY + 15);
+
+      // Recursive 3D branch drawer
+      const drawBranch3D = (x1, y1, z1, angleX, angleY, length, depth, maxDepth) => {
+        if (depth > maxDepth) return;
+
+        // Calculate 3D endpoints relative to starting point
+        const dx = length * Math.sin(angleX) * Math.cos(angleY);
+        const dy = -length * Math.cos(angleX);
+        const dz = length * Math.sin(angleX) * Math.sin(angleY);
+
+        const x2 = x1 + dx;
+        const y2 = y1 + dy;
+        const z2 = z1 + dz;
+
+        // Apply 3D rotation matrix around Y axis
+        const cosY = Math.cos(rotationAngle.current);
+        const sinY = Math.sin(rotationAngle.current);
+
+        const rx1 = x1 * cosY - z1 * sinY;
+        const rz1 = x1 * sinY + z1 * cosY;
+
+        const rx2 = x2 * cosY - z2 * sinY;
+        const rz2 = x2 * sinY + z2 * cosY;
+
+        // Project Z-depth coordinate to 2D scaling
+        const perspective = 220;
+        const scale1 = perspective / (perspective + rz1);
+        const scale2 = perspective / (perspective + rz2);
+
+        const screenX1 = startX + rx1 * scale1;
+        const screenY1 = startY + y1 * scale1;
+
+        const screenX2 = startX + rx2 * scale2;
+        const screenY2 = startY + y2 * scale2;
+
+        // Calculate thickness, boosted by nourish pulse
+        const thickness = Math.max((maxDepth - depth + 1) * 1.3 * pulseFactor.current, 0.7);
+        
+        ctx.beginPath();
+        ctx.moveTo(screenX1, screenY1);
+        ctx.lineTo(screenX2, screenY2);
+        ctx.strokeStyle = '#783f04'; // Brown bark color
+        ctx.lineWidth = thickness;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        // Draw leaves/flowers at outer branches
+        if (depth === maxDepth || (depth > maxDepth - 2 && Math.random() > 0.45)) {
+          ctx.beginPath();
+          const leafSize = Math.max((5 - depth) * 1.8, 2.2) * pulseFactor.current;
+          ctx.arc(screenX2, screenY2, leafSize, 0, Math.PI * 2);
+          
+          if (progressPct >= 90) {
+            ctx.fillStyle = 'rgba(244, 143, 177, 0.88)'; // Cherry blossoms pink
+            ctx.strokeStyle = 'rgba(240, 98, 146, 0.4)';
+          } else {
+            ctx.fillStyle = 'rgba(74, 222, 128, 0.88)'; // Green leaf
+            ctx.strokeStyle = 'rgba(34, 197, 94, 0.4)';
+          }
+          ctx.fill();
+          ctx.stroke();
+        }
+
+        // Branch parameters
+        const nextLength = length * 0.73;
+        
+        // Render splits
+        drawBranch3D(x2, y2, z2, angleX - 0.38, angleY + 0.7, nextLength, depth + 1, maxDepth);
+        drawBranch3D(x2, y2, z2, angleX + 0.28, angleY - 0.9, nextLength, depth + 1, maxDepth);
+        
+        // Render 3rd branch for thicker foliage at high levels
+        if (maxDepth >= 5 && depth > 1) {
+          drawBranch3D(x2, y2, z2, angleX + 0.08, angleY + 2.2, nextLength * 0.85, depth + 1, maxDepth);
+        }
+      };
+
+      // Define tree structural depth (maxDepth) based on habit percentage progress
+      let maxDepth = 2; // Tiny seed / stick
+      let initialLength = 35;
+      
+      if (progressPct > 10 && progressPct <= 30) {
+        maxDepth = 3;
+        initialLength = 40;
+      } else if (progressPct > 30 && progressPct <= 60) {
+        maxDepth = 4;
+        initialLength = 46;
+      } else if (progressPct > 60 && progressPct <= 90) {
+        maxDepth = 5;
+        initialLength = 50;
+      } else if (progressPct > 90) {
+        maxDepth = 6; // Beautiful large blooming tree
+        initialLength = 55;
+      }
+
+      // Start recursive drawing at root
+      drawBranch3D(0, 0, 0, 0, 0, initialLength, 1, maxDepth);
+
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [progressPct]);
+
+  return (
+    <div className="canvas-3d-wrapper">
+      <canvas 
+        ref={canvasRef} 
+        width={250} 
+        height={220} 
+        style={{ display: 'block', margin: '0 auto' }}
+      />
+    </div>
+  );
+}
+
+// ----------------------------------------------------
+// Main App Component
+// ----------------------------------------------------
 export default function App() {
   // --- States ---
   const [habits, setHabits] = useState([]);
@@ -123,6 +320,9 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState('dashboard');
   const [selectedHabitId, setSelectedHabitId] = useState(null);
   
+  // Nourishing Animation trigger count
+  const [nourishTriggered, setNourishTriggered] = useState(0);
+
   // New Habit form states
   const [newHabitName, setNewHabitName] = useState('');
   const [newHabitEmoji, setNewHabitEmoji] = useState('🏃‍♂️');
@@ -248,7 +448,7 @@ export default function App() {
 
   // --- Habits Actions ---
   const handleToggleHabit = async (habitId, dateStr, event) => {
-    if (event) event.stopPropagation(); // Avoid triggering card click
+    if (event) event.stopPropagation(); // Avoid opening details screen
     
     const habit = habits.find(h => h.id === habitId);
     if (!habit) return;
@@ -307,7 +507,6 @@ export default function App() {
     e.preventDefault();
     if (!newHabitName.trim()) return;
 
-    // Define target days based on scientific difficulty levels
     let targetDays = 21;
     if (newHabitDifficulty === 'medio') targetDays = 66;
     else if (newHabitDifficulty === 'dificil') targetDays = 90;
@@ -369,6 +568,31 @@ export default function App() {
     }
   };
 
+  const triggerNourishAnimation = (e) => {
+    if (!activeHabit) return;
+    
+    // Increment nourish count to spawn canvas particles
+    setNourishTriggered(prev => prev + 1);
+    
+    const todayStr = formatDateLocal(new Date());
+    const isCompletedToday = activeHabit.history.includes(todayStr);
+
+    if (!isCompletedToday) {
+      // Toggle today's completion (which writes to db and plays standard pop sound)
+      handleToggleHabit(activeHabit.id, todayStr, e);
+    } else {
+      // Today is already completed, just play nourishment sounds and extra sparkles!
+      if (soundEnabled) playPopSound();
+      
+      confetti({
+        particleCount: 30,
+        spread: 45,
+        origin: { y: 0.65 },
+        colors: ['#ffd700', '#4ade80']
+      });
+    }
+  };
+
   // --- Statistics calculations ---
   const todayStr = formatDateLocal(new Date());
   const habitsCompletedToday = habits.filter(h => h.history.includes(todayStr)).length;
@@ -383,10 +607,9 @@ export default function App() {
   
   const totalCompletionsCount = habits.reduce((acc, h) => acc + h.history.length, 0);
 
-  // Retrieve current active habit details if details screen is active
   const activeHabit = habits.find(h => h.id === selectedHabitId);
 
-  // --- Render Functions for screens ---
+  // --- Render Screens ---
   
   // 1. Dashboard Screen
   const renderDashboard = () => (
@@ -430,14 +653,14 @@ export default function App() {
               <Flame size={20} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} />
               {maxStreakOverall}
             </span>
-            <span className="stat-label">Mejor Racha (Días)</span>
+            <span className="stat-label">Mejor Racha</span>
           </div>
           <div className="glass-panel stat-box">
             <span className="stat-value" style={{ color: '#0BA360' }}>
               <Award size={20} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} />
               {totalCompletionsCount}
             </span>
-            <span className="stat-label">Completados Totales</span>
+            <span className="stat-label">Completados</span>
           </div>
         </section>
       )}
@@ -469,30 +692,34 @@ export default function App() {
               const theme = THEMES.find(t => t.name === habit.theme) || THEMES[0];
               const completedToday = habit.history.includes(todayStr);
               const treeInfo = getTreePhase(habit.history.length, habit.targetDays || 21);
+              
+              // Conditional background styling if custom image exists
+              const cardStyle = habit.image ? {
+                backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.72)), url(${habit.image})`
+              } : {};
 
               return (
                 <div 
                   key={habit.id} 
-                  className="glass-panel habit-card"
+                  className={`glass-panel habit-card ${habit.image ? 'habit-card-image-bg' : ''}`}
                   onClick={() => {
                     setSelectedHabitId(habit.id);
                     setCurrentScreen('details');
+                    setNourishTriggered(0); // Reset animation trigger count
                   }}
-                  style={{ cursor: 'pointer' }}
+                  style={cardStyle}
                 >
-                  {/* Card main layout */}
                   <div className="habit-card-main">
                     <div className="habit-details">
-                      <div 
-                        className="habit-emoji-container" 
-                        style={{ background: theme.gradient, boxShadow: `0 8px 20px ${theme.shadow}` }}
-                      >
-                        {habit.image ? (
-                          <img src={habit.image} alt={habit.name} className="habit-card-image" />
-                        ) : (
-                          habit.emoji
-                        )}
-                      </div>
+                      {/* Render circular emoji/icon ONLY if card DOES NOT have full-cover image background */}
+                      {!habit.image && (
+                        <div 
+                          className="habit-emoji-container" 
+                          style={{ background: theme.gradient, boxShadow: `0 8px 20px ${theme.shadow}` }}
+                        >
+                          {habit.emoji}
+                        </div>
+                      )}
                       
                       <div className="habit-info-text">
                         <h4 className="habit-title">{habit.name}</h4>
@@ -501,7 +728,7 @@ export default function App() {
                             <Flame size={12} className="streak-icon" />
                             {habit.streak || 0}d
                           </span>
-                          <span className="card-tree-badge" title={treeInfo.desc}>
+                          <span className="card-tree-badge">
                             {treeInfo.icon} {treeInfo.name}
                           </span>
                         </div>
@@ -607,7 +834,7 @@ export default function App() {
               onClick={() => setNewHabitDifficulty('facil')}
             >
               <div className="diff-title">🟢 Fácil</div>
-              <div className="diff-days">Meta: 21 días</div>
+              <div className="diff-days">21 días</div>
             </button>
             <button
               type="button"
@@ -615,7 +842,7 @@ export default function App() {
               onClick={() => setNewHabitDifficulty('medio')}
             >
               <div className="diff-title">🟡 Medio</div>
-              <div className="diff-days">Meta: 66 días</div>
+              <div className="diff-days">66 días</div>
             </button>
             <button
               type="button"
@@ -623,7 +850,7 @@ export default function App() {
               onClick={() => setNewHabitDifficulty('dificil')}
             >
               <div className="diff-title">🔴 Difícil</div>
-              <div className="diff-days">Meta: 90 días</div>
+              <div className="diff-days">90 días</div>
             </button>
           </div>
 
@@ -730,16 +957,13 @@ export default function App() {
     const progressPct = Math.min(Math.round((totalCompletions / targetDays) * 100), 100);
     const treeInfo = getTreePhase(totalCompletions, targetDays);
 
-    // Dynamic scientific review text
     const remainingDays = targetDays - totalCompletions;
     const isConsolidated = remainingDays <= 0;
 
-    // Create dates for the current calendar grid (GitHub style)
-    // Renders the last 30 days or the current month's days for visualization
+    // Create dates for the current calendar grid
     const getCalendarDays = () => {
       const days = [];
       const now = new Date();
-      // Render the current month's days
       const year = now.getFullYear();
       const month = now.getMonth();
       
@@ -760,125 +984,142 @@ export default function App() {
     const currentMonthName = new Date().toLocaleDateString('es-ES', { month: 'long' });
 
     return (
-      <div className="fullscreen-screen animate-slide-in">
-        <div className="screen-header">
-          <button className="back-btn" onClick={() => setCurrentScreen('dashboard')}>
-            <ArrowLeft size={20} />
-            <span>Dashboard</span>
-          </button>
-          <h2>Detalles</h2>
-        </div>
-
-        {/* Tree Growth Panel */}
-        <section className="glass-panel detail-tree-card" style={{ textAlign: 'center', padding: '2rem 1.5rem' }}>
-          <div className="tree-visual-circle" style={{ background: theme.gradient, boxShadow: `0 12px 35px ${theme.shadow}` }}>
-            {activeHabit.image ? (
-              <img src={activeHabit.image} alt={activeHabit.name} className="tree-custom-image" />
-            ) : (
-              <span className="large-emoji">{activeHabit.emoji}</span>
-            )}
-            <span className="tree-evolution-icon">{treeInfo.icon}</span>
-          </div>
-
-          <h2 style={{ margin: '1rem 0 0.2rem 0', fontWeight: '700' }}>{activeHabit.name}</h2>
-          <div className="tree-badge-container">
-            <span className="tree-phase-badge">Fase {treeInfo.phase}: {treeInfo.name}</span>
-            <span className="diff-badge" data-diff={activeHabit.difficulty}>
-              {activeHabit.difficulty === 'facil' && '🟢 Fácil'}
-              {activeHabit.difficulty === 'medio' && '🟡 Medio'}
-              {activeHabit.difficulty === 'dificil' && '🔴 Difícil'}
-            </span>
-          </div>
-
-          <p className="tree-desc" style={{ fontSize: '0.9rem', marginTop: '0.8rem', opacity: 0.8 }}>{treeInfo.desc}</p>
-
-          <div className="progress-section-large" style={{ marginTop: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.4rem' }}>
-              <span>Crecimiento del Árbol</span>
-              <span>{progressPct}% ({totalCompletions}/{targetDays}d)</span>
-            </div>
-            <div className="progress-bar-container" style={{ height: '12px' }}>
-              <div className="progress-bar-fill" style={{ width: `${progressPct}%`, background: theme.gradient }}></div>
-            </div>
-          </div>
-        </section>
-
-        {/* Scientific Progression Alert */}
-        <section className="glass-panel science-alert-panel">
-          <Info size={20} className="science-icon" />
-          <div className="science-text">
-            <h4>Constancia Científica</h4>
-            {isConsolidated ? (
-              <p>🎉 <strong>¡Hábito Consolidado!</strong> Has superado la meta de {targetDays} días. Tu cerebro ha fijado esta conducta como un proceso subconsciente y automático.</p>
-            ) : (
-              <p>💪 Te faltan <strong>{remainingDays} días</strong> completados para consolidar este hábito. Según la ciencia del comportamiento, alcanzar los {targetDays} días fijará esta rutina de forma permanente en tu mente.</p>
-            )}
-          </div>
-        </section>
-
-        {/* Statistics Grid */}
-        <section className="stats-container" style={{ marginBottom: '1.5rem' }}>
-          <div className="glass-panel stat-box">
-            <span className="stat-value" style={{ color: '#FF5A79' }}>
-              <Flame size={20} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} />
-              {activeHabit.streak}
-            </span>
-            <span className="stat-label">Racha Actual</span>
-          </div>
-          <div className="glass-panel stat-box">
-            <span className="stat-value" style={{ color: '#F76B1C' }}>
-              <Award size={20} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} />
-              {activeHabit.bestStreak}
-            </span>
-            <span className="stat-label">Mejor Racha</span>
-          </div>
-        </section>
-
-        {/* Month Calendar History Grid (GitHub contribution style) */}
-        <section className="glass-panel calendar-history-panel">
-          <div className="calendar-header" style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h4 style={{ margin: 0, fontWeight: '700', fontSize: '1rem' }}>Registro de {currentMonthName}</h4>
-            <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>Completados: {activeHabit.history.filter(h => h.startsWith(formatDateLocal(new Date()).slice(0, 7))).length} días</span>
-          </div>
-
-          <div className="calendar-grid">
-            {calendarDays.map((day) => {
-              let gridClass = 'empty';
-              let style = {};
-
-              if (day.isFuture) {
-                gridClass = 'future';
-              } else if (day.isCompleted) {
-                gridClass = 'completed';
-                style = { background: theme.gradient, color: 'white' };
-              }
-
-              return (
-                <div 
-                  key={day.dateStr} 
-                  className={`calendar-cell ${gridClass}`} 
-                  style={style}
-                  onClick={() => !day.isFuture && handleToggleHabit(activeHabit.id, day.dateStr)}
-                  title={`${day.isCompleted ? 'Completado' : 'Pendiente'} el ${day.dateStr}`}
-                >
-                  {day.dayNum}
-                </div>
-              );
-            })}
-          </div>
-          <p className="calendar-tip" style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '0.8rem', textAlign: 'center' }}>Puedes pulsar sobre un día del calendario para activar/desactivar tu progreso de esa fecha.</p>
-        </section>
-
-        {/* Delete button wrapper */}
-        <div style={{ marginTop: '2rem', padding: '0 0.5rem' }}>
-          <button 
-            type="button" 
-            onClick={() => handleDeleteHabit(activeHabit.id)} 
-            className="delete-habit-full-btn"
+      <div className="fullscreen-screen animate-slide-in" style={{ padding: 0 }}>
+        
+        {/* Banner Section: renders cover image or simple header */}
+        {activeHabit.image ? (
+          <div 
+            className="detail-image-banner animate-pop" 
+            style={{ backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.7)), url(${activeHabit.image})` }}
           >
-            <Trash2 size={16} style={{ marginRight: '6px' }} />
-            Eliminar este Hábito
-          </button>
+            <button className="back-btn-floating" onClick={() => setCurrentScreen('dashboard')} title="Volver al Dashboard">
+              <ArrowLeft size={20} />
+            </button>
+            <div className="banner-overlay-text">
+              <h2>{activeHabit.name}</h2>
+              <span className="banner-diff-badge" data-diff={activeHabit.difficulty}>
+                {activeHabit.difficulty === 'facil' && '🟢 Fácil'}
+                {activeHabit.difficulty === 'medio' && '🟡 Medio'}
+                {activeHabit.difficulty === 'dificil' && '🔴 Difícil'}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="screen-header" style={{ padding: '2rem 1rem 0 1rem' }}>
+            <button className="back-btn" onClick={() => setCurrentScreen('dashboard')}>
+              <ArrowLeft size={20} />
+              <span>Volver</span>
+            </button>
+            <h2>{activeHabit.name}</h2>
+          </div>
+        )}
+
+        {/* Inner Padding Container for remaining components */}
+        <div style={{ padding: '0 1rem 2rem 1rem', marginTop: activeHabit.image ? '1.5rem' : '0.5rem' }}>
+          
+          {/* 🌳 3D Canvas Tree Dedicated Section */}
+          <section className="glass-panel tree-3d-section animate-pop">
+            <h3 className="section-title">Mi Árbol de Hábito</h3>
+            
+            <Tree3D 
+              progressPct={progressPct} 
+              triggerNourish={nourishTriggered} 
+              themeColor={theme.gradient} 
+            />
+            
+            <div className="tree-details-footer">
+              <span className="tree-phase-badge">Fase {treeInfo.phase}: {treeInfo.name}</span>
+              <p className="tree-desc-text">{treeInfo.desc}</p>
+            </div>
+            
+            <button 
+              type="button" 
+              onClick={triggerNourishAnimation}
+              className="nourish-btn"
+              style={{ background: theme.gradient, boxShadow: `0 8px 20px ${theme.shadow}` }}
+            >
+              <Sparkles size={16} style={{ marginRight: '6px' }} />
+              Nutrir Árbol {!activeHabit.history.includes(todayStr) ? '(+1 Completado)' : '(Ver Brillo)'}
+            </button>
+          </section>
+
+          {/* Scientific Progression Alert */}
+          <section className="glass-panel science-alert-panel">
+            <Info size={20} className="science-icon" />
+            <div className="science-text">
+              <h4>Constancia Científica</h4>
+              {isConsolidated ? (
+                <p>🎉 <strong>¡Hábito Consolidado!</strong> Has superado la meta de {targetDays} días. Tu cerebro ha fijado esta conducta como un proceso subconsciente y automático.</p>
+              ) : (
+                <p>💪 Te faltan <strong>{remainingDays} días</strong> completados para consolidar este hábito. Según la ciencia del comportamiento, alcanzar los {targetDays} días fijará esta rutina de forma permanente en tu mente.</p>
+              )}
+            </div>
+          </section>
+
+          {/* Statistics Grid */}
+          <section className="stats-container" style={{ marginBottom: '1.5rem' }}>
+            <div className="glass-panel stat-box">
+              <span className="stat-value" style={{ color: '#FF5A79' }}>
+                <Flame size={20} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} />
+                {activeHabit.streak}
+              </span>
+              <span className="stat-label">Racha Actual</span>
+            </div>
+            <div className="glass-panel stat-box">
+              <span className="stat-value" style={{ color: '#F76B1C' }}>
+                <Award size={20} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} />
+                {activeHabit.bestStreak}
+              </span>
+              <span className="stat-label">Mejor Racha</span>
+            </div>
+          </section>
+
+          {/* Month Calendar History Grid */}
+          <section className="glass-panel calendar-history-panel">
+            <div className="calendar-header" style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h4 style={{ margin: 0, fontWeight: '700', fontSize: '1rem' }}>Registro de {currentMonthName}</h4>
+              <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>Completados: {activeHabit.history.filter(h => h.startsWith(formatDateLocal(new Date()).slice(0, 7))).length} días</span>
+            </div>
+
+            <div className="calendar-grid">
+              {calendarDays.map((day) => {
+                let gridClass = 'empty';
+                let style = {};
+
+                if (day.isFuture) {
+                  gridClass = 'future';
+                } else if (day.isCompleted) {
+                  gridClass = 'completed';
+                  style = { background: theme.gradient, color: 'white' };
+                }
+
+                return (
+                  <div 
+                    key={day.dateStr} 
+                    className={`calendar-cell ${gridClass}`} 
+                    style={style}
+                    onClick={() => !day.isFuture && handleToggleHabit(activeHabit.id, day.dateStr)}
+                    title={`${day.isCompleted ? 'Completado' : 'Pendiente'} el ${day.dateStr}`}
+                  >
+                    {day.dayNum}
+                  </div>
+                );
+              })}
+            </div>
+            <p className="calendar-tip" style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '0.8rem', textAlign: 'center' }}>Puedes pulsar sobre un día del calendario para activar/desactivar tu progreso de esa fecha.</p>
+          </section>
+
+          {/* Delete button wrapper */}
+          <div style={{ marginTop: '2rem' }}>
+            <button 
+              type="button" 
+              onClick={() => handleDeleteHabit(activeHabit.id)} 
+              className="delete-habit-full-btn"
+            >
+              <Trash2 size={16} style={{ marginRight: '6px' }} />
+              Eliminar este Hábito
+            </button>
+          </div>
         </div>
       </div>
     );
