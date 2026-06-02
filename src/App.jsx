@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { dbService } from './services/db';
+import appLogo from './assets/logo.png';
 
 // Predefined list of emojis for custom habits
 const EMOJIS = ['🏃‍♂️', '💧', '📚', '🧘‍♂️', '🍎', '😴', '🧹', '🦷', '💊', '🚶‍♂️', '🍳', '💼', '🎨', '🎸', '🌱', '✍️', '🗣️', '🚭'];
@@ -1024,7 +1025,7 @@ export default function App() {
         <div className={`splash-overlay ${splashFadeOut ? 'fade-out' : ''}`}>
           <div className="splash-content">
             <div className="splash-logo-container">
-              <span className="splash-emoji">🌳</span>
+              <img src={appLogo} alt="Logo" className="splash-logo-image" />
             </div>
             <h1 className="splash-title">HabitBuddy</h1>
             <p className="splash-tagline">Siembra un hábito, cosecha un destino.</p>
