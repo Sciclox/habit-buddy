@@ -23,6 +23,7 @@ import confetti from 'canvas-confetti';
 import { dbService } from './services/db';
 import appLogo from './assets/logo.png';
 import { SplashScreen } from '@capacitor/splash-screen';
+import { StatusBar, Style } from '@capacitor/status-bar';
 
 // Predefined list of emojis for custom habits
 const EMOJIS = ['🏃‍♂️', '💧', '📚', '🧘‍♂️', '🍎', '😴', '🧹', '🦷', '💊', '🚶‍♂️', '🍳', '💼', '🎨', '🎸', '🌱', '✍️', '🗣️', '🚭'];
@@ -175,6 +176,20 @@ export default function App() {
       document.body.classList.remove('dark-theme');
     }
   }, []);
+
+  // --- Sync Native Status Bar with Theme ---
+  useEffect(() => {
+    const updateStatusBar = async () => {
+      try {
+        await StatusBar.setBackgroundColor({ color: isDarkMode ? '#0d1117' : '#f5f7fb' });
+        await StatusBar.setStyle({ style: isDarkMode ? Style.Dark : Style.Light });
+        await StatusBar.setOverlaysWebView({ overlay: false });
+      } catch (e) {
+        console.warn("StatusBar plugin not available on web", e);
+      }
+    };
+    updateStatusBar();
+  }, [isDarkMode]);
 
   // --- Helper calculations ---
   const calculateStreak = (history) => {
