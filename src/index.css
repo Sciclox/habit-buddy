@@ -864,3 +864,334 @@ body.dark-theme {
 .remove-image-btn:active {
   transform: scale(0.9);
 }
+
+/* --- New Screens & Custom Elements --- */
+
+.fullscreen-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 10rem);
+  box-sizing: border-box;
+}
+
+/* Animations */
+.animate-slide-in {
+  animation: slideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideIn {
+  from { transform: translateX(30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.animate-pop {
+  animation: popEffect 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popEffect {
+  from { transform: scale(0.85); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Screen Header */
+.screen-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2rem;
+  gap: 1rem;
+}
+
+.screen-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.back-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.5rem 0.8rem;
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+.light-theme .back-btn { background: rgba(0, 0, 0, 0.04); color: var(--text-main-light); }
+.dark-theme .back-btn { background: rgba(255, 255, 255, 0.05); color: var(--text-main-dark); }
+
+.back-btn:active {
+  transform: scale(0.95);
+}
+
+/* Difficulty Picker */
+.difficulty-picker-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.difficulty-card {
+  padding: 0.75rem 0.5rem;
+  border-radius: 16px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.light-theme .difficulty-card { background: white; border-color: rgba(0, 0, 0, 0.04); }
+.dark-theme .difficulty-card { background: rgba(0, 0, 0, 0.2); border-color: rgba(255, 255, 255, 0.04); }
+
+.difficulty-card:hover {
+  transform: translateY(-2px);
+}
+
+.diff-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 0.15rem;
+}
+
+.diff-days {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+/* Selected states for difficulties */
+.selected-facil {
+  border-color: #22c55e !important;
+  background: rgba(34, 197, 94, 0.08) !important;
+  color: #15803d;
+}
+.dark-theme .selected-facil { color: #4ade80; }
+
+.selected-medio {
+  border-color: #eab308 !important;
+  background: rgba(234, 179, 8, 0.08) !important;
+  color: #a16207;
+}
+.dark-theme .selected-medio { color: #fde047; }
+
+.selected-dificil {
+  border-color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  color: #b91c1c;
+}
+.dark-theme .selected-dificil { color: #fca5a5; }
+
+/* Science Footnote */
+.science-footnote {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border-radius: 16px;
+  align-items: flex-start;
+}
+.light-theme .science-footnote { background: rgba(0, 159, 253, 0.04); border: 1px solid rgba(0, 159, 253, 0.1); }
+.dark-theme .science-footnote { background: rgba(33, 147, 176, 0.06); border: 1px solid rgba(33, 147, 176, 0.15); }
+
+.footnote-icon {
+  color: #009EFD;
+  margin-top: 0.1rem;
+  flex-shrink: 0;
+}
+
+.footnote-text p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+.light-theme .footnote-text p { color: #1e3a8a; }
+.dark-theme .footnote-text p { color: #93c5fd; }
+
+/* Card Tree Badge */
+.card-tree-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.04);
+}
+.dark-theme .card-tree-badge { background: rgba(255, 255, 255, 0.06); }
+
+/* --- Habit Details Screen Elements --- */
+
+.detail-tree-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tree-visual-circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-top: 1rem;
+}
+
+.tree-custom-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.large-emoji {
+  font-size: 3.5rem;
+}
+
+.tree-evolution-icon {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  font-size: 2.5rem;
+  animation: float 2.5s ease-in-out infinite;
+}
+
+.tree-badge-container {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.tree-phase-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.25rem 0.75rem;
+  border-radius: 99px;
+  background: linear-gradient(135deg, #FF6A88, #764BA2);
+  color: white;
+}
+
+.diff-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.25rem 0.75rem;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.04);
+}
+.dark-theme .diff-badge { background: rgba(255, 255, 255, 0.06); }
+
+/* Science Alert Panel */
+.science-alert-panel {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.light-theme .science-alert-panel { background: rgba(34, 197, 94, 0.04); border-color: rgba(34, 197, 94, 0.15); }
+.dark-theme .science-alert-panel { background: rgba(34, 197, 94, 0.06); border-color: rgba(34, 197, 94, 0.15); }
+
+.science-icon {
+  color: #22c55e;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+.science-text h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #15803d;
+}
+.dark-theme .science-text h4 { color: #4ade80; }
+
+.science-text p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+.light-theme .science-text p { color: #166534; }
+.dark-theme .science-text p { color: #86efac; }
+
+/* Calendar Contribution Grid */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+  justify-items: center;
+}
+
+.calendar-cell {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.light-theme .calendar-cell.empty {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+.dark-theme .calendar-cell.empty {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.light-theme .calendar-cell.future {
+  background: transparent;
+  border: 1px dashed rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.2);
+  cursor: not-allowed;
+}
+.dark-theme .calendar-cell.future {
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.2);
+  cursor: not-allowed;
+}
+
+.calendar-cell:not(.future):hover {
+  transform: scale(1.1);
+}
+
+.calendar-tip {
+  margin: 0;
+}
+
+/* Delete Full Button */
+.delete-habit-full-btn {
+  width: 100%;
+  padding: 0.9rem;
+  border-radius: 16px;
+  border: 2px solid transparent;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.light-theme .delete-habit-full-btn {
+  background: rgba(239, 68, 68, 0.05);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+.dark-theme .delete-habit-full-btn {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.delete-habit-full-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+.delete-habit-full-btn:active {
+  transform: scale(0.98);
+}

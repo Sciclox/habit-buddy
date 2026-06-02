@@ -25,7 +25,9 @@ class DatabaseService {
             theme TEXT NOT NULL,
             streak INTEGER DEFAULT 0,
             bestStreak INTEGER DEFAULT 0,
-            image TEXT
+            image TEXT,
+            difficulty TEXT DEFAULT 'facil',
+            targetDays INTEGER DEFAULT 21
           );
         `;
         const createHistoryTable = `
@@ -61,7 +63,9 @@ class DatabaseService {
           theme: 'ocean',
           history: [new Date().toISOString().split('T')[0]],
           streak: 1,
-          bestStreak: 1
+          bestStreak: 1,
+          difficulty: 'facil',
+          targetDays: 21
         },
         {
           id: '2',
@@ -70,7 +74,9 @@ class DatabaseService {
           theme: 'purple',
           history: [],
           streak: 0,
-          bestStreak: 0
+          bestStreak: 0,
+          difficulty: 'medio',
+          targetDays: 66
         }
       ];
       localStorage.setItem('habitbuddy_habits', JSON.stringify(defaultHabits));
@@ -98,7 +104,9 @@ class DatabaseService {
             history: habitHistory,
             streak: Number(h.streak || 0),
             bestStreak: Number(h.bestStreak || 0),
-            image: h.image || null
+            image: h.image || null,
+            difficulty: h.difficulty || 'facil',
+            targetDays: Number(h.targetDays || 21)
           };
         });
       } catch (err) {
@@ -116,8 +124,8 @@ class DatabaseService {
     if (this.isNative) {
       try {
         const query = `
-          INSERT INTO habits (id, name, emoji, theme, streak, bestStreak, image)
-          VALUES (?, ?, ?, ?, ?, ?, ?);
+          INSERT INTO habits (id, name, emoji, theme, streak, bestStreak, image, difficulty, targetDays)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
         `;
         await this.db.run(query, [
           habit.id, 
@@ -126,7 +134,9 @@ class DatabaseService {
           habit.theme, 
           habit.streak || 0, 
           habit.bestStreak || 0,
-          habit.image || null
+          habit.image || null,
+          habit.difficulty || 'facil',
+          habit.targetDays || 21
         ]);
         console.log("Habit added to SQLite:", habit.name);
       } catch (err) {

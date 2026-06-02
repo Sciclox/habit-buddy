@@ -13,7 +13,9 @@ import {
   Volume2,
   VolumeX,
   RotateCcw,
-  Camera
+  Camera,
+  ArrowLeft,
+  Info
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { dbService } from './services/db';
@@ -48,7 +50,7 @@ const getCurrentWeekDates = () => {
   // Get current day (0 for Sun, 1 for Mon, etc.)
   const dayOfWeek = today.getDay();
   
-  // Calculate difference to last Monday (in JS, if Sunday, day = 0, we want Monday to be start)
+  // Calculate difference to last Monday (Monday as start)
   const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   
   const monday = new Date(today);
@@ -68,6 +70,23 @@ const getCurrentWeekDates = () => {
   return dates;
 };
 
+// Growth phase calculator for the plant/tree
+const getTreePhase = (completionsCount, targetDays) => {
+  const percentage = Math.min((completionsCount / targetDays) * 100, 100);
+  
+  if (percentage <= 10) {
+    return { phase: 1, name: 'Semilla', icon: '🟤', desc: 'Semilla sembrada en tierra. ¡Da tu primer paso!', range: '0-10%' };
+  } else if (percentage <= 30) {
+    return { phase: 2, name: 'Brote', icon: '🌱', desc: '¡El primer brote está saliendo a la superficie!', range: '11-30%' };
+  } else if (percentage <= 60) {
+    return { phase: 3, name: 'Plántula', icon: '🌿', desc: 'Tu planta está creciendo y fortaleciendo sus hojas.', range: '31-60%' };
+  } else if (percentage <= 90) {
+    return { phase: 4, name: 'Árbol Joven', icon: '🌳', desc: 'Un árbol joven y firme. El hábito casi está automatizado.', range: '61-90%' };
+  } else {
+    return { phase: 5, name: 'Árbol en Flor', icon: '🌳🌸', desc: '¡Floración completa! Hábito plenamente consolidado en tu mente.', range: '91-100%' };
+  }
+};
+
 // Synth pop sound effect using Web Audio API
 const playPopSound = () => {
   try {
@@ -79,7 +98,6 @@ const playPopSound = () => {
     gain.connect(ctx.destination);
     
     osc.type = 'sine';
-    // Frequency ramps up from 350Hz to 850Hz to make a satisfying "bubble pop" sound
     osc.frequency.setValueAtTime(350, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(850, ctx.currentTime + 0.12);
     
@@ -89,7 +107,7 @@ const playPopSound = () => {
     osc.start();
     osc.stop(ctx.currentTime + 0.13);
   } catch (e) {
-    console.warn("Web Audio API not supported or blocked by user interaction.", e);
+    console.warn("Web Audio API blocked.", e);
   }
 };
 
@@ -99,21 +117,23 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [showModal, setShowModal] = useState(false);
   const [weekDates, setWeekDates] = useState([]);
+  
+  // Navigation Screens: 'dashboard' | 'create' | 'details'
+  const [currentScreen, setCurrentScreen] = useState('dashboard');
+  const [selectedHabitId, setSelectedHabitId] = useState(null);
   
   // New Habit form states
   const [newHabitName, setNewHabitName] = useState('');
   const [newHabitEmoji, setNewHabitEmoji] = useState('🏃‍♂️');
   const [newHabitTheme, setNewHabitTheme] = useState('coral');
+  const [newHabitDifficulty, setNewHabitDifficulty] = useState('facil'); // 'facil' | 'medio' | 'dificil'
   const [newHabitImage, setNewHabitImage] = useState(null); // base64 string
 
   // --- Initial Load ---
   useEffect(() => {
-    // Set week dates
     setWeekDates(getCurrentWeekDates());
     
-    // Load Database and Fetch Habits
     const initDbAndLoadHabits = async () => {
       try {
         await dbService.init();
@@ -128,13 +148,11 @@ export default function App() {
     
     initDbAndLoadHabits();
 
-    // Load sound preference
     const savedSound = localStorage.getItem('habitbuddy_sound');
     if (savedSound !== null) {
       setSoundEnabled(savedSound === 'true');
     }
 
-    // Load and apply theme
     const savedTheme = localStorage.getItem('habitbuddy_theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const shouldBeDark = savedTheme ? savedTheme === 'dark' : prefersDark;
@@ -152,14 +170,13 @@ export default function App() {
   // --- Helper calculations ---
   const calculateStreak = (history) => {
     if (!history || history.length === 0) return 0;
-    const sortedHistory = [...new Set(history)].sort().reverse(); // Decending sort
+    const sortedHistory = [...new Set(history)].sort().reverse();
     
     const todayStr = formatDateLocal(new Date());
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = formatDateLocal(yesterday);
     
-    // Check if completed today or yesterday
     const completedToday = sortedHistory.includes(todayStr);
     const completedYesterday = sortedHistory.includes(yesterdayStr);
     
@@ -184,7 +201,7 @@ export default function App() {
 
   const calculateBestStreak = (history, currentBest = 0) => {
     if (!history || history.length === 0) return 0;
-    const sortedHistory = [...new Set(history)].sort(); // Ascending sort
+    const sortedHistory = [...new Set(history)].sort();
     let tempStreak = 0;
     let maxStreak = currentBest;
     
@@ -223,7 +240,6 @@ export default function App() {
     }
   };
 
-  // --- Sound Toggle ---
   const toggleSound = () => {
     const nextSound = !soundEnabled;
     setSoundEnabled(nextSound);
@@ -232,6 +248,8 @@ export default function App() {
 
   // --- Habits Actions ---
   const handleToggleHabit = async (habitId, dateStr, event) => {
+    if (event) event.stopPropagation(); // Avoid triggering card click
+    
     const habit = habits.find(h => h.id === habitId);
     if (!habit) return;
     
@@ -239,18 +257,14 @@ export default function App() {
     let newHistory;
     
     if (exists) {
-      // Remove completion
       newHistory = habit.history.filter(d => d !== dateStr);
     } else {
-      // Add completion
       newHistory = [...habit.history, dateStr];
       
-      // Trigger completion feedback if completed date is today/past
       const isToday = dateStr === formatDateLocal(new Date());
       if (isToday) {
         if (soundEnabled) playPopSound();
         
-        // Trigger canvas confetti at click location (if event provided)
         if (event) {
           const x = event.clientX / window.innerWidth;
           const y = event.clientY / window.innerHeight;
@@ -273,10 +287,8 @@ export default function App() {
     const currentStreak = calculateStreak(newHistory);
     const bestStreak = calculateBestStreak(newHistory, habit.bestStreak);
     
-    // Save to SQLite
     await dbService.saveHabitHistory(habitId, newHistory, currentStreak, bestStreak);
     
-    // Refresh habits from SQLite to update React UI state
     const updatedHabits = await dbService.getHabits();
     setHabits(updatedHabits);
   };
@@ -284,8 +296,6 @@ export default function App() {
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    // Convert file to Base64
     const reader = new FileReader();
     reader.onloadend = () => {
       setNewHabitImage(reader.result);
@@ -297,6 +307,11 @@ export default function App() {
     e.preventDefault();
     if (!newHabitName.trim()) return;
 
+    // Define target days based on scientific difficulty levels
+    let targetDays = 21;
+    if (newHabitDifficulty === 'medio') targetDays = 66;
+    else if (newHabitDifficulty === 'dificil') targetDays = 90;
+
     const newHabit = {
       id: Date.now().toString(),
       name: newHabitName.trim(),
@@ -305,24 +320,24 @@ export default function App() {
       history: [],
       streak: 0,
       bestStreak: 0,
-      image: newHabitImage // base64 payload
+      image: newHabitImage,
+      difficulty: newHabitDifficulty,
+      targetDays: targetDays
     };
 
-    // Save to SQLite
     await dbService.addHabit(newHabit);
     
-    // Refresh habits
     const updatedHabits = await dbService.getHabits();
     setHabits(updatedHabits);
 
-    // Reset fields & close
+    // Reset fields & Navigate
     setNewHabitName('');
     setNewHabitEmoji('🏃‍♂️');
     setNewHabitTheme('coral');
+    setNewHabitDifficulty('facil');
     setNewHabitImage(null);
-    setShowModal(false);
+    setCurrentScreen('dashboard');
     
-    // Tiny celebration for new habit!
     confetti({
       particleCount: 40,
       angle: 60,
@@ -338,31 +353,20 @@ export default function App() {
   };
 
   const handleDeleteHabit = async (habitId) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este hábito?')) {
-      // Delete from SQLite
+    if (window.confirm('¿Estás seguro de que quieres eliminar este hábito y todo su historial de progreso?')) {
       await dbService.deleteHabit(habitId);
-      
-      // Refresh habits
       const updatedHabits = await dbService.getHabits();
       setHabits(updatedHabits);
+      setCurrentScreen('dashboard');
+      setSelectedHabitId(null);
     }
   };
 
   const handleResetAll = async () => {
     if (window.confirm('¿Quieres reiniciar todos tus hábitos y progreso? Esta acción no se puede deshacer.')) {
-      // Reset database
       await dbService.resetAll();
       setHabits([]);
     }
-  };
-
-  // Close modal and reset fields
-  const handleCloseModal = () => {
-    setNewHabitName('');
-    setNewHabitEmoji('🏃‍♂️');
-    setNewHabitTheme('coral');
-    setNewHabitImage(null);
-    setShowModal(false);
   };
 
   // --- Statistics calculations ---
@@ -373,51 +377,20 @@ export default function App() {
     ? Math.round((habitsCompletedToday / totalHabitsCount) * 100) 
     : 0;
 
-  // Best streak overall
   const maxStreakOverall = habits.length > 0 
     ? Math.max(...habits.map(h => h.bestStreak || 0)) 
     : 0;
   
-  // Total completions overall
   const totalCompletionsCount = habits.reduce((acc, h) => acc + h.history.length, 0);
 
-  if (isLoading) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: '1rem', color: 'var(--text-main-light)' }}>
-        <div style={{ fontSize: '2.5rem', animation: 'float 2s ease-in-out infinite' }}>🌱</div>
-        <h3 style={{ margin: 0, fontWeight: 600 }}>Cargando HabitBuddy...</h3>
-        <p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.6 }}>Iniciando base de datos SQLite</p>
-      </div>
-    );
-  }
+  // Retrieve current active habit details if details screen is active
+  const activeHabit = habits.find(h => h.id === selectedHabitId);
 
-  return (
-    <div className="app-container">
-      
-      {/* Header */}
-      <header className="app-header">
-        <div className="welcome-section">
-          <h1>HabitBuddy</h1>
-          <p>{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
-        </div>
-        <div style={{ display: 'flex', gap: '0.2rem' }}>
-          <button 
-            className="theme-toggle-btn" 
-            onClick={toggleSound}
-            title={soundEnabled ? "Desactivar sonidos" : "Activar sonidos"}
-          >
-            {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
-          </button>
-          <button 
-            className="theme-toggle-btn" 
-            onClick={toggleTheme}
-            title={isDarkMode ? "Modo Claro" : "Modo Oscuro"}
-          >
-            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-        </div>
-      </header>
-
+  // --- Render Functions for screens ---
+  
+  // 1. Dashboard Screen
+  const renderDashboard = () => (
+    <>
       {/* Progress & Quick Stats */}
       <section className="glass-panel progress-card">
         <div className="progress-info">
@@ -428,7 +401,6 @@ export default function App() {
           </div>
         </div>
         
-        {/* SVG Circular Progress */}
         <div className="circular-progress">
           <svg>
             <defs>
@@ -477,8 +449,8 @@ export default function App() {
           {totalHabitsCount > 0 && (
             <button 
               onClick={handleResetAll} 
-              style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-muted-light)', opacity: 0.8 }}
               className="reset-btn"
+              style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-muted-light)', opacity: 0.8 }}
             >
               <RotateCcw size={12} /> Reiniciar todo
             </button>
@@ -496,18 +468,25 @@ export default function App() {
             {habits.map((habit) => {
               const theme = THEMES.find(t => t.name === habit.theme) || THEMES[0];
               const completedToday = habit.history.includes(todayStr);
+              const treeInfo = getTreePhase(habit.history.length, habit.targetDays || 21);
 
               return (
-                <div key={habit.id} className="glass-panel habit-card">
-                  
-                  {/* Top info and main click area */}
+                <div 
+                  key={habit.id} 
+                  className="glass-panel habit-card"
+                  onClick={() => {
+                    setSelectedHabitId(habit.id);
+                    setCurrentScreen('details');
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {/* Card main layout */}
                   <div className="habit-card-main">
                     <div className="habit-details">
                       <div 
                         className="habit-emoji-container" 
                         style={{ background: theme.gradient, boxShadow: `0 8px 20px ${theme.shadow}` }}
                       >
-                        {/* Render Base64 image if present, else emoji */}
                         {habit.image ? (
                           <img src={habit.image} alt={habit.name} className="habit-card-image" />
                         ) : (
@@ -517,10 +496,15 @@ export default function App() {
                       
                       <div className="habit-info-text">
                         <h4 className="habit-title">{habit.name}</h4>
-                        <span className={`habit-streak ${habit.streak > 0 ? 'streak-active' : ''}`}>
-                          <Flame size={12} className="streak-icon" />
-                          Racha: {habit.streak || 0} {(habit.streak === 1) ? 'día' : 'días'}
-                        </span>
+                        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', marginTop: '0.15rem' }}>
+                          <span className={`habit-streak ${habit.streak > 0 ? 'streak-active' : ''}`}>
+                            <Flame size={12} className="streak-icon" />
+                            {habit.streak || 0}d
+                          </span>
+                          <span className="card-tree-badge" title={treeInfo.desc}>
+                            {treeInfo.icon} {treeInfo.name}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -534,14 +518,6 @@ export default function App() {
                         }}
                       >
                         {completedToday ? <Check size={24} /> : <Plus size={24} />}
-                      </button>
-                      
-                      <button 
-                        onClick={() => handleDeleteHabit(habit.id)}
-                        className="delete-btn"
-                        title="Eliminar hábito"
-                      >
-                        <Trash2 size={16} />
                       </button>
                     </div>
                   </div>
@@ -571,7 +547,6 @@ export default function App() {
                             onClick={(e) => handleToggleHabit(habit.id, day.dateStr, e)}
                             className={`day-dot ${dotClass} ${day.isToday ? 'today-active' : ''}`}
                             style={style}
-                            title={`${day.isToday ? 'Hoy: ' : ''}${isCompleted ? 'Completado' : 'Pendiente'}`}
                           >
                             {isCompleted ? <Check size={12} /> : day.dayNum}
                           </button>
@@ -587,117 +562,369 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Add Button */}
-      <button className="fab" onClick={() => setShowModal(true)}>
+      <button className="fab" onClick={() => setCurrentScreen('create')}>
         <Plus size={20} />
         Crear nuevo hábito
       </button>
+    </>
+  );
 
-      {/* Add Habit Modal Sheet */}
-      {showModal && (
-        <div className="modal-overlay" onClick={handleCloseModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h4>Nuevo Hábito</h4>
-              <button className="close-modal-btn" onClick={handleCloseModal}>
-                <X size={20} />
-              </button>
-            </div>
+  // 2. Create Screen (Full Screen View)
+  const renderCreateScreen = () => (
+    <div className="fullscreen-screen animate-slide-in">
+      <div className="screen-header">
+        <button className="back-btn" onClick={() => setCurrentScreen('dashboard')}>
+          <ArrowLeft size={20} />
+          <span>Volver</span>
+        </button>
+        <h2>Crear Hábito</h2>
+      </div>
 
-            <form onSubmit={handleCreateHabit}>
-              {/* Habit Name */}
-              <div className="form-group">
-                <label htmlFor="habit-name">¿Qué hábito quieres construir?</label>
-                <input
-                  id="habit-name"
-                  type="text"
-                  className="input-text"
-                  placeholder="Ej: Tomar agua, Leer, Ejercicio..."
-                  value={newHabitName}
-                  onChange={(e) => setNewHabitName(e.target.value)}
-                  maxLength={25}
-                  required
-                  autoFocus
-                />
-              </div>
+      <form onSubmit={handleCreateHabit} className="create-form">
+        {/* Habit Name */}
+        <div className="form-group">
+          <label htmlFor="habit-name">¿Qué hábito quieres construir?</label>
+          <input
+            id="habit-name"
+            type="text"
+            className="input-text"
+            placeholder="Ej: Meditar, Beber agua, Ejercicio..."
+            value={newHabitName}
+            onChange={(e) => setNewHabitName(e.target.value)}
+            maxLength={25}
+            required
+            autoFocus
+          />
+        </div>
 
-              {/* Image upload preference */}
-              <div className="form-group">
-                <label>Foto de referencia (Opcional)</label>
-                <div className="image-upload-container">
-                  {newHabitImage ? (
-                    <div className="image-preview-wrapper animate-pop">
-                      <img src={newHabitImage} alt="Previsualización" className="image-upload-preview" />
-                      <button 
-                        type="button" 
-                        className="remove-image-btn" 
-                        onClick={() => setNewHabitImage(null)}
-                        title="Eliminar foto"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ) : (
-                    <label className="image-upload-label">
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={handleImageUpload} 
-                        style={{ display: 'none' }}
-                      />
-                      <div className="upload-placeholder">
-                        <Camera size={16} style={{ marginRight: '6px' }} />
-                        <span>Subir foto de referencia</span>
-                      </div>
-                    </label>
-                  )}
-                </div>
-              </div>
+        {/* Scientific Difficulty Levels */}
+        <div className="form-group">
+          <label>Nivel de Dificultad (Ciencia del Hábito)</label>
+          <div className="difficulty-picker-container">
+            <button
+              type="button"
+              className={`difficulty-card ${newHabitDifficulty === 'facil' ? 'selected-facil' : ''}`}
+              onClick={() => setNewHabitDifficulty('facil')}
+            >
+              <div className="diff-title">🟢 Fácil</div>
+              <div className="diff-days">Meta: 21 días</div>
+            </button>
+            <button
+              type="button"
+              className={`difficulty-card ${newHabitDifficulty === 'medio' ? 'selected-medio' : ''}`}
+              onClick={() => setNewHabitDifficulty('medio')}
+            >
+              <div className="diff-title">🟡 Medio</div>
+              <div className="diff-days">Meta: 66 días</div>
+            </button>
+            <button
+              type="button"
+              className={`difficulty-card ${newHabitDifficulty === 'dificil' ? 'selected-dificil' : ''}`}
+              onClick={() => setNewHabitDifficulty('dificil')}
+            >
+              <div className="diff-title">🔴 Difícil</div>
+              <div className="diff-days">Meta: 90 días</div>
+            </button>
+          </div>
 
-              {/* Emoji Selector (only highlight or label if image is not uploaded) */}
-              {!newHabitImage && (
-                <div className="form-group">
-                  <label>O selecciona un emoji</label>
-                  <div className="emoji-selector">
-                    {EMOJIS.map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        className={`emoji-option ${newHabitEmoji === emoji ? 'selected' : ''}`}
-                        onClick={() => setNewHabitEmoji(emoji)}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+          {/* Dynamic Scientific description footnote */}
+          <div className="science-footnote glass-panel">
+            <Info size={16} className="footnote-icon" />
+            <div className="footnote-text">
+              {newHabitDifficulty === 'facil' && (
+                <p><strong>Meta 21 Días (Mito de Maltz):</strong> Ideal para acciones muy simples que no requieren gran esfuerzo cognitivo (ej. tomar vitaminas, hidratación simple).</p>
               )}
-
-              {/* Color Theme Selector */}
-              <div className="form-group">
-                <label>Selecciona un color</label>
-                <div className="theme-selector">
-                  {THEMES.map((t) => (
-                    <button
-                      key={t.name}
-                      type="button"
-                      className={`theme-option ${t.name} ${newHabitTheme === t.name ? 'selected' : ''}`}
-                      style={{ background: t.gradient }}
-                      onClick={() => setNewHabitTheme(t.name)}
-                    >
-                      <div className="theme-option-dot" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Submit */}
-              <button type="submit" className="save-habit-btn">
-                ¡Empezar hábito!
-              </button>
-            </form>
+              {newHabitDifficulty === 'medio' && (
+                <p><strong>Meta 66 Días (Estudio UCL):</strong> El estándar de oro de la Dra. Phillippa Lally. Promedio real necesario para automatizar rutinas diarias en nuestra mente (ej. leer, meditar).</p>
+              )}
+              {newHabitDifficulty === 'dificil' && (
+                <p><strong>Meta 90 Días (Regla 90/90):</strong> Recomendado para cambios significativos del estilo de vida o eliminar dependencias (ej. ir al gimnasio, aprender idioma, no fumar).</p>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Upload Custom Photo */}
+        <div className="form-group">
+          <label>Foto de referencia (Opcional)</label>
+          <div className="image-upload-container">
+            {newHabitImage ? (
+              <div className="image-preview-wrapper animate-pop">
+                <img src={newHabitImage} alt="Referencia" className="image-upload-preview" />
+                <button 
+                  type="button" 
+                  className="remove-image-btn" 
+                  onClick={() => setNewHabitImage(null)}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ) : (
+              <label className="image-upload-label">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleImageUpload} 
+                  style={{ display: 'none' }}
+                />
+                <div className="upload-placeholder">
+                  <Camera size={16} style={{ marginRight: '6px' }} />
+                  <span>Subir foto de referencia</span>
+                </div>
+              </label>
+            )}
+          </div>
+        </div>
+
+        {/* Emoji selector (only shown if no image is uploaded) */}
+        {!newHabitImage && (
+          <div className="form-group">
+            <label>O selecciona un emoji</label>
+            <div className="emoji-selector">
+              {EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  className={`emoji-option ${newHabitEmoji === emoji ? 'selected' : ''}`}
+                  onClick={() => setNewHabitEmoji(emoji)}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Color Theme Selector */}
+        <div className="form-group">
+          <label>Color Temático</label>
+          <div className="theme-selector">
+            {THEMES.map((t) => (
+              <button
+                key={t.name}
+                type="button"
+                className={`theme-option ${newHabitTheme === t.name ? 'selected' : ''}`}
+                style={{ background: t.gradient }}
+                onClick={() => setNewHabitTheme(t.name)}
+              >
+                <div className="theme-option-dot" />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button type="submit" className="save-habit-btn" style={{ marginTop: '2rem' }}>
+          ¡Empezar hábito!
+        </button>
+      </form>
+    </div>
+  );
+
+  // 3. Details Screen (Full Screen View for specific habit)
+  const renderDetailsScreen = () => {
+    if (!activeHabit) return null;
+
+    const theme = THEMES.find(t => t.name === activeHabit.theme) || THEMES[0];
+    const totalCompletions = activeHabit.history.length;
+    const targetDays = activeHabit.targetDays || 21;
+    const progressPct = Math.min(Math.round((totalCompletions / targetDays) * 100), 100);
+    const treeInfo = getTreePhase(totalCompletions, targetDays);
+
+    // Dynamic scientific review text
+    const remainingDays = targetDays - totalCompletions;
+    const isConsolidated = remainingDays <= 0;
+
+    // Create dates for the current calendar grid (GitHub style)
+    // Renders the last 30 days or the current month's days for visualization
+    const getCalendarDays = () => {
+      const days = [];
+      const now = new Date();
+      // Render the current month's days
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      
+      const numDays = new Date(year, month + 1, 0).getDate();
+      for (let i = 1; i <= numDays; i++) {
+        const d = new Date(year, month, i);
+        days.push({
+          dateStr: formatDateLocal(d),
+          dayNum: i,
+          isCompleted: activeHabit.history.includes(formatDateLocal(d)),
+          isFuture: d > now && formatDateLocal(d) !== formatDateLocal(now)
+        });
+      }
+      return days;
+    };
+
+    const calendarDays = getCalendarDays();
+    const currentMonthName = new Date().toLocaleDateString('es-ES', { month: 'long' });
+
+    return (
+      <div className="fullscreen-screen animate-slide-in">
+        <div className="screen-header">
+          <button className="back-btn" onClick={() => setCurrentScreen('dashboard')}>
+            <ArrowLeft size={20} />
+            <span>Dashboard</span>
+          </button>
+          <h2>Detalles</h2>
+        </div>
+
+        {/* Tree Growth Panel */}
+        <section className="glass-panel detail-tree-card" style={{ textAlign: 'center', padding: '2rem 1.5rem' }}>
+          <div className="tree-visual-circle" style={{ background: theme.gradient, boxShadow: `0 12px 35px ${theme.shadow}` }}>
+            {activeHabit.image ? (
+              <img src={activeHabit.image} alt={activeHabit.name} className="tree-custom-image" />
+            ) : (
+              <span className="large-emoji">{activeHabit.emoji}</span>
+            )}
+            <span className="tree-evolution-icon">{treeInfo.icon}</span>
+          </div>
+
+          <h2 style={{ margin: '1rem 0 0.2rem 0', fontWeight: '700' }}>{activeHabit.name}</h2>
+          <div className="tree-badge-container">
+            <span className="tree-phase-badge">Fase {treeInfo.phase}: {treeInfo.name}</span>
+            <span className="diff-badge" data-diff={activeHabit.difficulty}>
+              {activeHabit.difficulty === 'facil' && '🟢 Fácil'}
+              {activeHabit.difficulty === 'medio' && '🟡 Medio'}
+              {activeHabit.difficulty === 'dificil' && '🔴 Difícil'}
+            </span>
+          </div>
+
+          <p className="tree-desc" style={{ fontSize: '0.9rem', marginTop: '0.8rem', opacity: 0.8 }}>{treeInfo.desc}</p>
+
+          <div className="progress-section-large" style={{ marginTop: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.4rem' }}>
+              <span>Crecimiento del Árbol</span>
+              <span>{progressPct}% ({totalCompletions}/{targetDays}d)</span>
+            </div>
+            <div className="progress-bar-container" style={{ height: '12px' }}>
+              <div className="progress-bar-fill" style={{ width: `${progressPct}%`, background: theme.gradient }}></div>
+            </div>
+          </div>
+        </section>
+
+        {/* Scientific Progression Alert */}
+        <section className="glass-panel science-alert-panel">
+          <Info size={20} className="science-icon" />
+          <div className="science-text">
+            <h4>Constancia Científica</h4>
+            {isConsolidated ? (
+              <p>🎉 <strong>¡Hábito Consolidado!</strong> Has superado la meta de {targetDays} días. Tu cerebro ha fijado esta conducta como un proceso subconsciente y automático.</p>
+            ) : (
+              <p>💪 Te faltan <strong>{remainingDays} días</strong> completados para consolidar este hábito. Según la ciencia del comportamiento, alcanzar los {targetDays} días fijará esta rutina de forma permanente en tu mente.</p>
+            )}
+          </div>
+        </section>
+
+        {/* Statistics Grid */}
+        <section className="stats-container" style={{ marginBottom: '1.5rem' }}>
+          <div className="glass-panel stat-box">
+            <span className="stat-value" style={{ color: '#FF5A79' }}>
+              <Flame size={20} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} />
+              {activeHabit.streak}
+            </span>
+            <span className="stat-label">Racha Actual</span>
+          </div>
+          <div className="glass-panel stat-box">
+            <span className="stat-value" style={{ color: '#F76B1C' }}>
+              <Award size={20} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} />
+              {activeHabit.bestStreak}
+            </span>
+            <span className="stat-label">Mejor Racha</span>
+          </div>
+        </section>
+
+        {/* Month Calendar History Grid (GitHub contribution style) */}
+        <section className="glass-panel calendar-history-panel">
+          <div className="calendar-header" style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h4 style={{ margin: 0, fontWeight: '700', fontSize: '1rem' }}>Registro de {currentMonthName}</h4>
+            <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>Completados: {activeHabit.history.filter(h => h.startsWith(formatDateLocal(new Date()).slice(0, 7))).length} días</span>
+          </div>
+
+          <div className="calendar-grid">
+            {calendarDays.map((day) => {
+              let gridClass = 'empty';
+              let style = {};
+
+              if (day.isFuture) {
+                gridClass = 'future';
+              } else if (day.isCompleted) {
+                gridClass = 'completed';
+                style = { background: theme.gradient, color: 'white' };
+              }
+
+              return (
+                <div 
+                  key={day.dateStr} 
+                  className={`calendar-cell ${gridClass}`} 
+                  style={style}
+                  onClick={() => !day.isFuture && handleToggleHabit(activeHabit.id, day.dateStr)}
+                  title={`${day.isCompleted ? 'Completado' : 'Pendiente'} el ${day.dateStr}`}
+                >
+                  {day.dayNum}
+                </div>
+              );
+            })}
+          </div>
+          <p className="calendar-tip" style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '0.8rem', textAlign: 'center' }}>Puedes pulsar sobre un día del calendario para activar/desactivar tu progreso de esa fecha.</p>
+        </section>
+
+        {/* Delete button wrapper */}
+        <div style={{ marginTop: '2rem', padding: '0 0.5rem' }}>
+          <button 
+            type="button" 
+            onClick={() => handleDeleteHabit(activeHabit.id)} 
+            className="delete-habit-full-btn"
+          >
+            <Trash2 size={16} style={{ marginRight: '6px' }} />
+            Eliminar este Hábito
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="app-container">
+      {/* Universal header layout (only show toggles on dashboard) */}
+      {currentScreen === 'dashboard' && (
+        <header className="app-header">
+          <div className="welcome-section">
+            <h1>HabitBuddy</h1>
+            <p>{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
+          </div>
+          <div style={{ display: 'flex', gap: '0.2rem' }}>
+            <button 
+              className="theme-toggle-btn" 
+              onClick={toggleSound}
+              title={soundEnabled ? "Desactivar sonidos" : "Activar sonidos"}
+            >
+              {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+            </button>
+            <button 
+              className="theme-toggle-btn" 
+              onClick={toggleTheme}
+              title={isDarkMode ? "Modo Claro" : "Modo Oscuro"}
+            >
+              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+          </div>
+        </header>
+      )}
+
+      {/* Screen Router */}
+      {isLoading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh', gap: '1rem', color: 'var(--text-main-light)' }}>
+          <div style={{ fontSize: '2.5rem', animation: 'float 2s ease-in-out infinite' }}>🌱</div>
+          <h3 style={{ margin: 0, fontWeight: 600 }}>Cargando HabitBuddy...</h3>
+          <p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.6 }}>Iniciando base de datos SQLite</p>
+        </div>
+      ) : (
+        <>
+          {currentScreen === 'dashboard' && renderDashboard()}
+          {currentScreen === 'create' && renderCreateScreen()}
+          {currentScreen === 'details' && renderDetailsScreen()}
+        </>
       )}
 
     </div>
