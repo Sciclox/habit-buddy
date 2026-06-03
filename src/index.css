@@ -1,5 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
+* {
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
 :root {
   font-family: 'Outfit', sans-serif;
   line-height: 1.5;
@@ -74,10 +79,15 @@ body.dark-theme {
   max-width: 480px;
   margin: 0 auto;
   min-height: 100vh;
-  padding: calc(2.5rem + env(safe-area-inset-top, 0px)) 1rem calc(7.5rem + env(safe-area-inset-bottom, 0px)) 1rem;
+  padding: calc(15px + env(safe-area-inset-top, 0px)) 1rem calc(75px + env(safe-area-inset-bottom, 0px)) 1rem;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+}
+
+/* Fullscreen screens (no bottom nav) padding override */
+.app-container.fullscreen-container {
+  padding-bottom: calc(15px + env(safe-area-inset-bottom, 0px));
 }
 
 /* Glassmorphism Classes */
@@ -774,7 +784,10 @@ body.dark-theme {
 /* Custom styles for mobile apps */
 @media (max-width: 480px) {
   .app-container {
-    padding: calc(2rem + env(safe-area-inset-top, 0px)) 0.75rem calc(7rem + env(safe-area-inset-bottom, 0px)) 0.75rem;
+    padding: calc(15px + env(safe-area-inset-top, 0px)) 0.75rem calc(75px + env(safe-area-inset-bottom, 0px)) 0.75rem;
+  }
+  .app-container.fullscreen-container {
+    padding-bottom: calc(15px + env(safe-area-inset-bottom, 0px));
   }
   .glass-panel {
     padding: 1.25rem 1rem;
@@ -1646,4 +1659,57 @@ body.dark-theme {
 @keyframes splashTextSlideUp {
   0% { transform: translateY(20px); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
+}
+
+/* --- Redesigned Form Styles (Create screen) --- */
+.form-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 24px;
+}
+
+.form-card-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #FF6A88 0%, #764BA2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.preview-habit-card {
+  transition: all 0.3s ease;
+}
+
+.light-theme .preview-habit-card {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+}
+
+.dark-theme .preview-habit-card {
+  background: rgba(22, 27, 34, 0.7) !important;
+  border: 1px solid rgba(240, 246, 252, 0.1) !important;
+}
+
+/* Tactile Press Animations for Tappable Elements */
+.theme-toggle-btn:active,
+.back-btn:active,
+.remove-image-btn:active,
+.fab-nav:active,
+.complete-btn:active {
+  transform: scale(0.9) !important;
+}
+
+.nav-tab:active,
+.difficulty-card:active,
+.theme-option:active,
+.calendar-cell:active:not(.future),
+.save-habit-btn:active,
+.delete-habit-full-btn:active {
+  transform: scale(0.95) !important;
+}
+
+.forest-tree-card:active,
+.habit-card:active {
+  transform: scale(0.97) !important;
 }

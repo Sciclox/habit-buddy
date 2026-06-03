@@ -674,154 +674,220 @@ export default function App() {
   );
 
   // 3. Create Screen (Full Screen View)
-  const renderCreateScreen = () => (
-    <div className="fullscreen-screen animate-slide-in">
-      <div className="screen-header">
-        <button className="back-btn" onClick={handleCloseModal}>
-          <ArrowLeft size={20} />
-          <span>Volver</span>
-        </button>
-        <h2>Crear Hábito</h2>
-      </div>
-
-      <form onSubmit={handleCreateHabit} className="create-form" style={{ paddingBottom: '2rem' }}>
-        {/* Habit Name */}
-        <div className="form-group">
-          <label htmlFor="habit-name">¿Qué hábito quieres construir?</label>
-          <input
-            id="habit-name"
-            type="text"
-            className="input-text"
-            placeholder="Ej: Meditar, Beber agua, Ejercicio..."
-            value={newHabitName}
-            onChange={(e) => setNewHabitName(e.target.value)}
-            maxLength={25}
-            required
-            autoFocus
-          />
+  const renderCreateScreen = () => {
+    const activeTheme = THEMES.find(t => t.name === newHabitTheme) || THEMES[0];
+    return (
+      <div className="fullscreen-screen animate-slide-in">
+        <div className="screen-header">
+          <button className="back-btn" onClick={handleCloseModal}>
+            <ArrowLeft size={20} />
+            <span>Volver</span>
+          </button>
+          <h2>Nuevo Hábito</h2>
         </div>
 
-        {/* Scientific Difficulty Levels */}
-        <div className="form-group">
-          <label>Nivel de Dificultad (Ciencia del Hábito)</label>
-          <div className="difficulty-picker-container">
-            <button
-              type="button"
-              className={`difficulty-card ${newHabitDifficulty === 'facil' ? 'selected-facil' : ''}`}
-              onClick={() => setNewHabitDifficulty('facil')}
-            >
-              <div className="diff-title">🟢 Fácil</div>
-              <div className="diff-days">Meta: 21 días</div>
-            </button>
-            <button
-              type="button"
-              className={`difficulty-card ${newHabitDifficulty === 'medio' ? 'selected-medio' : ''}`}
-              onClick={() => setNewHabitDifficulty('medio')}
-            >
-              <div className="diff-title">🟡 Medio</div>
-              <div className="diff-days">Meta: 66 días</div>
-            </button>
-            <button
-              type="button"
-              className={`difficulty-card ${newHabitDifficulty === 'dificil' ? 'selected-dificil' : ''}`}
-              onClick={() => setNewHabitDifficulty('dificil')}
-            >
-              <div className="diff-title">🔴 Difícil</div>
-              <div className="diff-days">Meta: 90 días</div>
-            </button>
-          </div>
-
-          <div className="science-footnote glass-panel">
-            <Info size={16} className="footnote-icon" />
-            <div className="footnote-text">
-              {newHabitDifficulty === 'facil' && (
-                <p><strong>Meta 21 Días (Mito de Maltz):</strong> Ideal para acciones muy simples que no requieren gran esfuerzo cognitivo (ej. tomar vitaminas, hidratación simple).</p>
-              )}
-              {newHabitDifficulty === 'medio' && (
-                <p><strong>Meta 66 Días (Estudio UCL):</strong> El estándar de oro de la Dra. Phillippa Lally. Promedio real necesario para automatizar rutinas diarias en nuestra mente (ej. leer, meditar).</p>
-              )}
-              {newHabitDifficulty === 'dificil' && (
-                <p><strong>Meta 90 Días (Regla 90/90):</strong> Recomendado para cambios significativos del estilo de vida o eliminar dependencias (ej. ir al gimnasio, aprender idioma, no fumar).</p>
-              )}
+        <form onSubmit={handleCreateHabit} className="create-form" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', paddingBottom: '2rem' }}>
+          {/* Card 1: Hábito e Hitos Científicos */}
+          <div className="glass-panel form-card" style={{ margin: 0 }}>
+            <h3 className="form-card-title">🌱 Define tu Hábito</h3>
+            
+            <div className="form-group" style={{ margin: 0 }}>
+              <label htmlFor="habit-name">¿Qué hábito quieres construir?</label>
+              <input
+                id="habit-name"
+                type="text"
+                className="input-text"
+                placeholder="Ej: Meditar, Beber agua, Ejercicio..."
+                value={newHabitName}
+                onChange={(e) => setNewHabitName(e.target.value)}
+                maxLength={25}
+                required
+                autoFocus
+              />
             </div>
-          </div>
-        </div>
 
-        {/* Upload Custom Photo */}
-        <div className="form-group">
-          <label>Foto de referencia (Opcional)</label>
-          <div className="image-upload-container">
-            {newHabitImage ? (
-              <div className="image-preview-wrapper animate-pop">
-                <img src={newHabitImage} alt="Referencia" className="image-upload-preview" />
-                <button 
-                  type="button" 
-                  className="remove-image-btn" 
-                  onClick={() => setNewHabitImage(null)}
+            <div className="form-group" style={{ marginTop: '1.25rem', marginBottom: 0 }}>
+              <label>Meta de Días (Ciencia del Hábito)</label>
+              <div className="difficulty-picker-container">
+                <button
+                  type="button"
+                  className={`difficulty-card ${newHabitDifficulty === 'facil' ? 'selected-facil' : ''}`}
+                  onClick={() => setNewHabitDifficulty('facil')}
                 >
-                  <X size={12} />
+                  <div className="diff-title">🟢 Fácil</div>
+                  <div className="diff-days">21 días</div>
+                </button>
+                <button
+                  type="button"
+                  className={`difficulty-card ${newHabitDifficulty === 'medio' ? 'selected-medio' : ''}`}
+                  onClick={() => setNewHabitDifficulty('medio')}
+                >
+                  <div className="diff-title">🟡 Medio</div>
+                  <div className="diff-days">66 días</div>
+                </button>
+                <button
+                  type="button"
+                  className={`difficulty-card ${newHabitDifficulty === 'dificil' ? 'selected-dificil' : ''}`}
+                  onClick={() => setNewHabitDifficulty('dificil')}
+                >
+                  <div className="diff-title">🔴 Difícil</div>
+                  <div className="diff-days">90 días</div>
                 </button>
               </div>
-            ) : (
-              <label className="image-upload-label">
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={handleImageUpload} 
-                  style={{ display: 'none' }}
-                />
-                <div className="upload-placeholder">
-                  <Camera size={16} style={{ marginRight: '6px' }} />
-                  <span>Subir foto de referencia</span>
-                </div>
-              </label>
-            )}
-          </div>
-        </div>
 
-        {/* Emoji selector (only shown if no image is uploaded) */}
-        {!newHabitImage && (
-          <div className="form-group">
-            <label>O selecciona un emoji</label>
-            <div className="emoji-selector">
-              {EMOJIS.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  className={`emoji-option ${newHabitEmoji === emoji ? 'selected' : ''}`}
-                  onClick={() => setNewHabitEmoji(emoji)}
-                >
-                  {emoji}
-                </button>
-              ))}
+              <div className="science-footnote glass-panel" style={{ marginTop: '1rem', marginBottom: 0 }}>
+                <Info size={16} className="footnote-icon" />
+                <div className="footnote-text">
+                  {newHabitDifficulty === 'facil' && (
+                    <p><strong>Meta 21 Días (Mito de Maltz):</strong> Ideal para acciones simples que no requieren gran esfuerzo cognitivo (ej. tomar vitaminas).</p>
+                  )}
+                  {newHabitDifficulty === 'medio' && (
+                    <p><strong>Meta 66 Días (Estándar UCL):</strong> Promedio necesario para automatizar rutinas en tu cerebro (ej. meditar, leer).</p>
+                  )}
+                  {newHabitDifficulty === 'dificil' && (
+                    <p><strong>Meta 90 Días (Regla 90/90):</strong> Recomendado para cambios importantes del estilo de vida o eliminar dependencias.</p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        )}
 
-        {/* Color Theme Selector */}
-        <div className="form-group">
-          <label>Color Temático</label>
-          <div className="theme-selector">
-            {THEMES.map((t) => (
-              <button
-                key={t.name}
-                type="button"
-                className={`theme-option ${newHabitTheme === t.name ? 'selected' : ''}`}
-                style={{ background: t.gradient }}
-                onClick={() => setNewHabitTheme(t.name)}
+          {/* Card 2: Live Real-time Preview */}
+          <div className="glass-panel form-card" style={{ margin: 0, paddingBottom: '1.25rem' }}>
+            <h3 className="form-card-title">✨ Previsualización del Árbol</h3>
+            <p className="form-card-subtitle" style={{ fontSize: '0.8rem', opacity: 0.7, margin: '-0.6rem 0 1rem 0', fontWeight: 500 }}>Así se verá tu planta creciendo en tu jardín</p>
+            
+            <div style={{ display: 'flex', justifyContent: 'center', margin: '0.5rem 0' }}>
+              <div 
+                className="glass-panel preview-habit-card"
+                style={{ 
+                  width: '100%', 
+                  maxWidth: '280px',
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  padding: '1.25rem',
+                  borderRadius: '24px',
+                  border: '1px solid var(--card-border-light)',
+                  boxShadow: `0 8px 30px ${activeTheme.shadow}`,
+                  background: 'var(--card-bg-light)',
+                  margin: 0
+                }}
               >
-                <div className="theme-option-dot" />
-              </button>
-            ))}
+                <div 
+                  className="tree-glow-aura"
+                  style={{ 
+                    background: activeTheme.gradient, 
+                    boxShadow: `0 8px 24px ${activeTheme.shadow}, inset 0 0 10px rgba(255, 255, 255, 0.4)`,
+                    marginBottom: '0.6rem'
+                  }}
+                >
+                  {newHabitImage ? (
+                    <img src={newHabitImage} alt="preview" className="forest-tree-image" />
+                  ) : (
+                    <span className="forest-tree-emoji">{newHabitEmoji}</span>
+                  )}
+                  <span className="forest-tree-stage-badge">🌰</span>
+                </div>
+                <h4 style={{ margin: '0.25rem 0', fontWeight: '700', fontSize: '1.05rem', textAlign: 'center', color: 'var(--text-main-light)' }}>
+                  {newHabitName || 'Mi Nuevo Hábito'}
+                </h4>
+                <span style={{ fontSize: '0.72rem', fontWeight: '600', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted-light)' }}>
+                  Fase 1: Semilla (0%)
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <button type="submit" className="save-habit-btn" style={{ marginTop: '2rem' }}>
-          ¡Empezar hábito!
-        </button>
-      </form>
-    </div>
-  );
+          {/* Card 3: Personalización Estética (Color y Icono) */}
+          <div className="glass-panel form-card" style={{ margin: 0 }}>
+            <h3 className="form-card-title">🎨 Estilo Visual</h3>
+
+            {/* Avatar upload / selector tab */}
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Icono o Imagen de Referencia</label>
+              <div className="image-upload-container" style={{ margin: 0 }}>
+                {newHabitImage ? (
+                  <div className="image-preview-wrapper animate-pop">
+                    <img src={newHabitImage} alt="Referencia" className="image-upload-preview" />
+                    <button 
+                      type="button" 
+                      className="remove-image-btn" 
+                      onClick={() => setNewHabitImage(null)}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="image-upload-label" style={{ margin: 0, width: '100%' }}>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={handleImageUpload} 
+                      style={{ display: 'none' }}
+                    />
+                    <div className="upload-placeholder">
+                      <Camera size={16} style={{ marginRight: '6px' }} />
+                      <span>Subir foto de referencia</span>
+                    </div>
+                  </label>
+                )}
+              </div>
+            </div>
+
+            {/* Emoji Selector (hidden if custom image uploaded) */}
+            {!newHabitImage && (
+              <div className="form-group" style={{ marginTop: '1.25rem', marginBottom: 0 }}>
+                <label>O selecciona un emoji</label>
+                <div className="emoji-selector" style={{ margin: 0 }}>
+                  {EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      className={`emoji-option ${newHabitEmoji === emoji ? 'selected' : ''}`}
+                      onClick={() => setNewHabitEmoji(emoji)}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Theme selector */}
+            <div className="form-group" style={{ marginTop: '1.25rem', marginBottom: 0 }}>
+              <label>Color Temático</label>
+              <div className="theme-selector" style={{ margin: 0 }}>
+                {THEMES.map((t) => (
+                  <button
+                    key={t.name}
+                    type="button"
+                    className={`theme-option ${newHabitTheme === t.name ? 'selected' : ''}`}
+                    style={{ background: t.gradient }}
+                    onClick={() => setNewHabitTheme(t.name)}
+                  >
+                    <div className="theme-option-dot" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <button 
+            type="submit" 
+            className="save-habit-btn" 
+            style={{ 
+              marginTop: '0.75rem', 
+              background: activeTheme.gradient, 
+              boxShadow: `0 8px 25px ${activeTheme.shadow}` 
+            }}
+          >
+            ¡Empezar hábito!
+          </button>
+        </form>
+      </div>
+    );
+  };
 
   // 4. Details Screen (Full Screen View for specific habit)
   const renderDetailsScreen = () => {
@@ -1031,7 +1097,7 @@ export default function App() {
   };
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${currentScreen === 'create' || currentScreen === 'details' ? 'fullscreen-container' : ''}`}>
 
       {/* Header (Only show on root tabs) */}
       {(currentScreen === 'dashboard' || currentScreen === 'forest') && (
