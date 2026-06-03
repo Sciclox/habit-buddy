@@ -17,7 +17,11 @@ import {
   ArrowLeft,
   Info,
   ListTodo,
-  Trees
+  Trees,
+  Lock,
+  Unlock,
+  Settings,
+  ShieldAlert
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { dbService } from './services/db';
@@ -25,8 +29,12 @@ import appLogo from './assets/logo.png';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
-// Predefined list of emojis for custom habits
-const EMOJIS = ['🏃‍♂️', '💧', '📚', '🧘‍♂️', '🍎', '😴', '🧹', '🦷', '💊', '🚶‍♂️', '🍳', '💼', '🎨', '🎸', '🌱', '✍️', '🗣️', '🚭'];
+// Predefined list of 50 emojis for custom habits
+const EMOJIS = [
+  '🏃‍♂️', '💧', '📚', '🧘‍♂️', '🍎', '😴', '🧹', '🦷', '💊', '🚶‍♂️', '🍳', '💼', '🎨', '🎸', '🌱', '✍️', '🗣️', '🚭',
+  '🚴‍♂️', '🏋️‍♂️', '🧘‍♀️', '🥬', '🥦', '☕', '🍵', '🚿', '🧴', '🛍️', '💰', '📈', '🧩', '🎮', '🎧', '💻', '⏰',
+  '📅', '🪴', '🌸', '🧼', '🧺', '🚗', '✈️', '🐶', '🐱', '🍌', '🥛', '💪', '🔥', '🧗‍♂️', '🏊‍♂️'
+];
 
 // Predefined theme gradients matching index.css
 const THEMES = [
@@ -36,7 +44,12 @@ const THEMES = [
   { name: 'sunset', gradient: 'var(--gradient-sunset)', shadow: 'rgba(247, 107, 28, 0.4)' },
   { name: 'purple', gradient: 'var(--gradient-purple)', shadow: 'rgba(118, 75, 162, 0.4)' },
   { name: 'indigo', gradient: 'var(--gradient-indigo)', shadow: 'rgba(33, 147, 176, 0.4)' },
-  { name: 'gold', gradient: 'var(--gradient-gold)', shadow: 'rgba(166, 193, 238, 0.4)' }
+  { name: 'gold', gradient: 'var(--gradient-gold)', shadow: 'rgba(166, 193, 238, 0.4)' },
+  { name: 'neon', gradient: 'var(--gradient-neon)', shadow: 'rgba(56, 229, 77, 0.4)' },
+  { name: 'rose', gradient: 'var(--gradient-rose)', shadow: 'rgba(241, 134, 192, 0.4)' },
+  { name: 'midnight', gradient: 'var(--gradient-midnight)', shadow: 'rgba(78, 67, 118, 0.4)' },
+  { name: 'amber', gradient: 'var(--gradient-amber)', shadow: 'rgba(241, 196, 15, 0.4)' },
+  { name: 'berry', gradient: 'var(--gradient-berry)', shadow: 'rgba(255, 88, 88, 0.4)' }
 ];
 
 // Helper to format date as YYYY-MM-DD in local time
@@ -135,6 +148,31 @@ export default function App() {
   const [newHabitDifficulty, setNewHabitDifficulty] = useState('facil'); // 'facil' | 'medio' | 'dificil'
   const [newHabitImage, setNewHabitImage] = useState(null); // base64 string
 
+  // --- Onboarding & Security States ---
+  const [isOnboarded, setIsOnboarded] = useState(false);
+  const [pinCode, setPinCode] = useState(null);
+  const [isAppLocked, setIsAppLocked] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutTimeRemaining, setLockoutTimeRemaining] = useState(0);
+  
+  // Custom Modals states
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [habitToDeleteId, setHabitToDeleteId] = useState(null);
+  const [pinErrorMsg, setPinErrorMsg] = useState('');
+  const [showPinErrorModal, setShowPinErrorModal] = useState(false);
+  const [showDisablePinModal, setShowDisablePinModal] = useState(false);
+  const [disablePinInput, setDisablePinInput] = useState('');
+
+  // PIN setup and entry temp states
+  const [pinSetupStep, setPinSetupStep] = useState('enter'); // 'enter' | 'confirm'
+  const [tempPin, setTempPin] = useState('');
+  const [pinInput, setPinInput] = useState(''); // for both setup and unlock
+  
+  // Onboarding active index
+  const [onboardingIndex, setOnboardingIndex] = useState(0);
+
   // --- Initial Load ---
   useEffect(() => {
     setWeekDates(getCurrentWeekDates());
@@ -158,6 +196,27 @@ export default function App() {
     
     initDbAndLoadHabits();
 
+    // Load Onboarding & Security settings
+    const onboardedValue = localStorage.getItem('habitbuddy_onboarded') === 'true';
+    setIsOnboarded(onboardedValue);
+
+    const savedPin = localStorage.getItem('habitbuddy_pin');
+    if (savedPin) {
+      setPinCode(savedPin);
+      setIsAppLocked(true); // force lock screen if PIN is set
+    }
+
+    // Check Lockout
+    const lockoutUntil = localStorage.getItem('habitbuddy_lockout_until');
+    if (lockoutUntil) {
+      const remainingTime = Math.ceil((parseInt(lockoutUntil, 10) - Date.now()) / 1000);
+      if (remainingTime > 0) {
+        setLockoutTimeRemaining(remainingTime);
+      } else {
+        localStorage.removeItem('habitbuddy_lockout_until');
+      }
+    }
+
     const savedSound = localStorage.getItem('habitbuddy_sound');
     if (savedSound !== null) {
       setSoundEnabled(savedSound === 'true');
@@ -176,6 +235,25 @@ export default function App() {
       document.body.classList.remove('dark-theme');
     }
   }, []);
+
+  // --- Lockout Countdown Timer Effect ---
+  useEffect(() => {
+    if (lockoutTimeRemaining <= 0) return;
+    
+    const interval = setInterval(() => {
+      setLockoutTimeRemaining((prev) => {
+        if (prev <= 1) {
+          localStorage.removeItem('habitbuddy_lockout_until');
+          setFailedAttempts(0);
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [lockoutTimeRemaining]);
 
   // --- Sync Native Status Bar with Theme ---
   useEffect(() => {
@@ -329,7 +407,10 @@ export default function App() {
 
   const handleCreateHabit = async (e) => {
     e.preventDefault();
-    if (!newHabitName.trim()) return;
+    if (!newHabitName.trim()) {
+      setShowValidationModal(true);
+      return;
+    }
 
     let targetDays = 21;
     if (newHabitDifficulty === 'medio') targetDays = 66;
@@ -375,21 +456,43 @@ export default function App() {
     });
   };
 
-  const handleDeleteHabit = async (habitId) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este hábito y todo su historial de progreso?')) {
-      await dbService.deleteHabit(habitId);
-      const updatedHabits = await dbService.getHabits();
-      setHabits(updatedHabits);
-      setCurrentScreen('dashboard');
-      setSelectedHabitId(null);
-    }
+  const triggerDeleteHabit = (habitId) => {
+    setHabitToDeleteId(habitId);
   };
 
-  const handleResetAll = async () => {
-    if (window.confirm('¿Quieres reiniciar todos tus hábitos y progreso? Esta acción no se puede deshacer.')) {
-      await dbService.resetAll();
-      setHabits([]);
-    }
+  const confirmDeleteHabit = async () => {
+    if (!habitToDeleteId) return;
+    await dbService.deleteHabit(habitToDeleteId);
+    const updatedHabits = await dbService.getHabits();
+    setHabits(updatedHabits);
+    setCurrentScreen('dashboard');
+    setSelectedHabitId(null);
+    setHabitToDeleteId(null);
+  };
+
+  const triggerResetAll = () => {
+    setShowResetModal(true);
+  };
+
+  const confirmResetAll = async () => {
+    await dbService.resetAll();
+    setHabits([]);
+    
+    // Reset security and onboarding states/storage
+    localStorage.removeItem('habitbuddy_pin');
+    localStorage.removeItem('habitbuddy_pin_enabled');
+    localStorage.removeItem('habitbuddy_onboarded');
+    localStorage.removeItem('habitbuddy_lockout_until');
+    
+    setPinCode(null);
+    setIsOnboarded(false);
+    setIsAppLocked(false);
+    setFailedAttempts(0);
+    setLockoutTimeRemaining(0);
+    setOnboardingIndex(0);
+
+    setShowResetModal(false);
+    setShowSettingsModal(false);
   };
 
   const handleCloseModal = () => {
@@ -399,6 +502,130 @@ export default function App() {
     setNewHabitDifficulty('facil');
     setNewHabitImage(null);
     setCurrentScreen('dashboard');
+  };
+
+  // --- Onboarding Slider Handlers ---
+  const handleNextOnboarding = () => {
+    if (onboardingIndex < 2) {
+      setOnboardingIndex(prev => prev + 1);
+    } else {
+      // Completed onboarding
+      setIsOnboarded(true);
+      localStorage.setItem('habitbuddy_onboarded', 'true');
+    }
+  };
+
+  // --- PIN Keyboard Actions ---
+  const handlePinKeyPress = (digit) => {
+    if (lockoutTimeRemaining > 0) return; // ignore keys if locked out
+    
+    const newPinInput = pinInput + digit;
+    if (newPinInput.length > 4) return;
+    
+    setPinInput(newPinInput);
+
+    // If we reach 4 digits, evaluate
+    if (newPinInput.length === 4) {
+      // Setup Mode
+      if (!pinCode) {
+        if (pinSetupStep === 'enter') {
+          setTempPin(newPinInput);
+          setPinInput('');
+          setPinSetupStep('confirm');
+          if (soundEnabled) playPopSound();
+        } else if (pinSetupStep === 'confirm') {
+          if (newPinInput === tempPin) {
+            // Setup Success!
+            setPinCode(newPinInput);
+            localStorage.setItem('habitbuddy_pin', newPinInput);
+            localStorage.setItem('habitbuddy_pin_enabled', 'true');
+            setPinInput('');
+            setTempPin('');
+            setPinSetupStep('enter');
+            setIsAppLocked(false);
+            
+            // Confetti and Sound
+            if (soundEnabled) playPopSound();
+            confetti({
+              particleCount: 100,
+              spread: 70,
+              origin: { y: 0.6 }
+            });
+          } else {
+            // Setup Mismatch!
+            setPinErrorMsg('¡El PIN de confirmación no coincide! Inténtalo de nuevo.');
+            setShowPinErrorModal(true);
+            setPinInput('');
+            setTempPin('');
+            setPinSetupStep('enter');
+          }
+        }
+      } 
+      // Unlock Mode
+      else {
+        if (newPinInput === pinCode) {
+          // Correct PIN!
+          setIsAppLocked(false);
+          setPinInput('');
+          setFailedAttempts(0);
+          if (soundEnabled) playPopSound();
+        } else {
+          // Incorrect PIN!
+          const nextFailed = failedAttempts + 1;
+          setFailedAttempts(nextFailed);
+          setPinInput('');
+          
+          if (soundEnabled) {
+            // Play double beep error
+            try {
+              const ctx = new (window.AudioContext || window.webkitAudioContext)();
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain); gain.connect(ctx.destination);
+              osc.type = 'sawtooth';
+              osc.frequency.setValueAtTime(150, ctx.currentTime);
+              gain.gain.setValueAtTime(0.1, ctx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+              osc.start(); osc.stop(ctx.currentTime + 0.26);
+            } catch(e){}
+          }
+
+          if (nextFailed >= 3) {
+            // Trigger 30 minutes lockout
+            const lockoutUntil = Date.now() + 30 * 60 * 1000;
+            localStorage.setItem('habitbuddy_lockout_until', String(lockoutUntil));
+            setLockoutTimeRemaining(1800); // 30 minutes in seconds
+          } else {
+            setPinErrorMsg(`PIN incorrecto. Te quedan ${3 - nextFailed} intentos.`);
+            setShowPinErrorModal(true);
+          }
+        }
+      }
+    }
+  };
+
+  const handlePinBackspace = () => {
+    if (pinInput.length > 0) {
+      setPinInput(prev => prev.slice(0, -1));
+    }
+  };
+
+  const togglePinSecurity = (enabled) => {
+    if (enabled) {
+      // Force configuration of PIN if enabling and no PIN exists
+      if (!pinCode) {
+        setPinSetupStep('enter');
+        setPinInput('');
+        setTempPin('');
+        setIsAppLocked(true);
+        setShowSettingsModal(false);
+      } else {
+        localStorage.setItem('habitbuddy_pin_enabled', 'true');
+      }
+    } else {
+      setDisablePinInput('');
+      setShowDisablePinModal(true);
+    }
   };
 
   // --- Statistics calculations ---
@@ -420,7 +647,466 @@ export default function App() {
 
   // --- Render Functions for screens ---
   
-  // 1. Dashboard Screen
+  // 1. Onboarding Screen Carousel
+  const renderOnboarding = () => {
+    const slides = [
+      {
+        title: "Bienvenido a HabitBuddy",
+        desc: "Siembra tus hábitos diarios como árboles y observa cómo se transforman en un bosque digital.",
+        emoji: "🌳",
+        gradient: "var(--gradient-emerald)",
+        shadow: "rgba(11, 163, 96, 0.3)"
+      },
+      {
+        title: "Metodología Científica",
+        desc: "Construye hábitos reales con metas de 21, 66 o 90 días basadas en la ciencia del comportamiento.",
+        emoji: "🧪",
+        gradient: "var(--gradient-ocean)",
+        shadow: "rgba(0, 159, 253, 0.3)"
+      },
+      {
+        title: "Privacidad de Acero",
+        desc: "Tus hábitos y metas son tuyos. Protege tu información de miradas extrañas de forma local.",
+        emoji: "🛡️",
+        gradient: "var(--gradient-purple)",
+        shadow: "rgba(118, 75, 162, 0.3)"
+      }
+    ];
+
+    const currentSlide = slides[onboardingIndex];
+
+    return (
+      <div className="onboarding-screen animate-slide-in">
+        <div className="onboarding-slider">
+          <div className="onboarding-slide" key={onboardingIndex}>
+            <div 
+              className="onboarding-illustration"
+              style={{ 
+                background: currentSlide.gradient, 
+                boxShadow: `0 15px 35px ${currentSlide.shadow}, inset 0 0 15px rgba(255, 255, 255, 0.4)`
+              }}
+            >
+              {currentSlide.emoji}
+            </div>
+            <h2>{currentSlide.title}</h2>
+            <p>{currentSlide.desc}</p>
+          </div>
+        </div>
+
+        <div className="onboarding-controls">
+          <div className="onboarding-dots">
+            {slides.map((_, i) => (
+              <div 
+                key={i} 
+                className={`onboarding-dot ${i === onboardingIndex ? 'active' : ''}`}
+                onClick={() => setOnboardingIndex(i)}
+                style={{ cursor: 'pointer' }}
+              />
+            ))}
+          </div>
+          <button className="onboarding-btn" onClick={handleNextOnboarding}>
+            {onboardingIndex === 2 ? 'Comenzar' : 'Siguiente'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // 2. PIN Setup Screen
+  const renderPinSetup = () => {
+    const isConfirming = pinSetupStep === 'confirm';
+    const displayDots = Array(4).fill(0);
+
+    return (
+      <div className="pin-screen-container animate-slide-in">
+        <div className="pin-header">
+          <div className="pin-lock-icon-wrapper">
+            <Lock size={32} />
+          </div>
+          <h2>{isConfirming ? 'Confirma tu PIN' : 'Crea tu PIN de seguridad'}</h2>
+          <p>{isConfirming ? 'Ingresa el PIN de nuevo para confirmar' : 'Protege tus metas y mantén tu privacidad'}</p>
+        </div>
+
+        <div className="pin-dots-display">
+          {displayDots.map((_, i) => (
+            <div 
+              key={i} 
+              className={`pin-dot-indicator ${i < pinInput.length ? 'filled' : ''}`}
+            />
+          ))}
+        </div>
+
+        <div className="pin-keypad">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => (
+            <button 
+              key={digit} 
+              type="button" 
+              className="pin-key"
+              onClick={() => handlePinKeyPress(String(digit))}
+            >
+              {digit}
+            </button>
+          ))}
+          <div className="pin-key-empty" />
+          <button 
+            type="button" 
+            className="pin-key"
+            onClick={() => handlePinKeyPress('0')}
+          >
+            0
+          </button>
+          <button 
+            type="button" 
+            className="pin-key pin-key-backspace"
+            onClick={handlePinBackspace}
+          >
+            ⌫
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // 3. PIN Lock Screen
+  const renderPinLock = () => {
+    const displayDots = Array(4).fill(0);
+
+    const formatLockoutTime = (seconds) => {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    };
+
+    return (
+      <div className="pin-screen-container">
+        {lockoutTimeRemaining > 0 ? (
+          <div className="lockout-state">
+            <div className="pin-lock-icon-wrapper" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
+              <ShieldAlert size={32} />
+            </div>
+            <h2>Dispositivo Bloqueado</h2>
+            <p>Demasiados intentos fallidos. Inténtalo de nuevo en:</p>
+            <div className="lockout-timer">{formatLockoutTime(lockoutTimeRemaining)}</div>
+          </div>
+        ) : (
+          <div className="animate-slide-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+            <div className="pin-header">
+              <div className="pin-lock-icon-wrapper">
+                <Lock size={32} />
+              </div>
+              <h2>Ingresa tu PIN</h2>
+              <p>HabitBuddy está protegido para tu privacidad</p>
+            </div>
+
+            <div className="pin-dots-display">
+              {displayDots.map((_, i) => (
+                <div 
+                  key={i} 
+                  className={`pin-dot-indicator ${i < pinInput.length ? 'filled' : ''}`}
+                />
+              ))}
+            </div>
+
+            <div className="pin-keypad">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => (
+                <button 
+                  key={digit} 
+                  type="button" 
+                  className="pin-key"
+                  onClick={() => handlePinKeyPress(String(digit))}
+                >
+                  {digit}
+                </button>
+              ))}
+              <div className="pin-key-empty" />
+              <button 
+                type="button" 
+                className="pin-key"
+                onClick={() => handlePinKeyPress('0')}
+              >
+                0
+              </button>
+              <button 
+                type="button" 
+                className="pin-key pin-key-backspace"
+                onClick={handlePinBackspace}
+              >
+                ⌫
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // 4. Settings Modal
+  const renderSettingsModal = () => {
+    if (!showSettingsModal) return null;
+
+    return (
+      <div className="custom-modal-overlay" onClick={() => setShowSettingsModal(false)}>
+        <div className="custom-modal animate-pop" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <h3>Ajustes</h3>
+            <button className="modal-close-btn" onClick={() => setShowSettingsModal(false)}>
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="settings-list">
+            {/* Sound Toggle */}
+            <div className="settings-item">
+              <div className="settings-item-info">
+                <span className="settings-item-label">Efectos de Sonido</span>
+                <span className="settings-item-desc">Sonidos al completar metas</span>
+              </div>
+              <label className="switch">
+                <input 
+                  type="checkbox" 
+                  checked={soundEnabled} 
+                  onChange={toggleSound} 
+                />
+                <span className="slider-switch"></span>
+              </label>
+            </div>
+
+            {/* Theme Toggle */}
+            <div className="settings-item">
+              <div className="settings-item-info">
+                <span className="settings-item-label">Modo Oscuro</span>
+                <span className="settings-item-desc">Cambiar la paleta visual</span>
+              </div>
+              <label className="switch">
+                <input 
+                  type="checkbox" 
+                  checked={isDarkMode} 
+                  onChange={toggleTheme} 
+                />
+                <span className="slider-switch"></span>
+              </label>
+            </div>
+
+            {/* PIN Security Toggle */}
+            <div className="settings-item">
+              <div className="settings-item-info">
+                <span className="settings-item-label">Bloqueo por PIN</span>
+                <span className="settings-item-desc">Proteger acceso a la app</span>
+              </div>
+              <label className="switch">
+                <input 
+                  type="checkbox" 
+                  checked={!!pinCode} 
+                  onChange={(e) => togglePinSecurity(e.target.checked)} 
+                />
+                <span className="slider-switch"></span>
+              </label>
+            </div>
+
+            {/* Change PIN (Only if PIN enabled) */}
+            {pinCode && (
+              <div className="settings-item">
+                <div className="settings-item-info">
+                  <span className="settings-item-label">Cambiar PIN</span>
+                  <span className="settings-item-desc">Establecer una nueva clave</span>
+                </div>
+                <button 
+                  className="settings-action-btn"
+                  onClick={() => {
+                    // Trigger PIN setup/change
+                    setPinSetupStep('enter');
+                    setPinInput('');
+                    setTempPin('');
+                    setIsAppLocked(true); // lock screen so user can re-setup
+                    setShowSettingsModal(false);
+                    // Temporarily remove pinCode so setup triggers
+                    localStorage.removeItem('habitbuddy_pin');
+                    setPinCode(null);
+                  }}
+                >
+                  Configurar
+                </button>
+              </div>
+            )}
+
+            {/* Reset All Data */}
+            <div className="settings-item" style={{ borderLeft: '3px solid #ef4444' }}>
+              <div className="settings-item-info">
+                <span className="settings-item-label" style={{ color: '#ef4444' }}>Reiniciar Datos</span>
+                <span className="settings-item-desc">Borrar todo el historial y hábitos</span>
+              </div>
+              <button 
+                className="settings-action-btn"
+                style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }}
+                onClick={triggerResetAll}
+              >
+                Reiniciar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // 5. Custom Modals (Alerts / Confirms)
+  const renderCustomModals = () => {
+    // 1. Reset All Modal
+    if (showResetModal) {
+      return (
+        <div className="custom-modal-overlay" onClick={() => setShowResetModal(false)}>
+          <div className="custom-modal animate-pop" onClick={(e) => e.stopPropagation()}>
+            <div className="warning-icon-wrapper">
+              <RotateCcw size={28} />
+            </div>
+            <h3 className="warning-title">¿Reiniciar todo?</h3>
+            <p className="warning-desc">
+              Esta acción eliminará de forma permanente todos tus hábitos, historiales y la configuración de seguridad. No se puede deshacer.
+            </p>
+            <div className="modal-action-buttons">
+              <button className="modal-cancel-btn" onClick={() => setShowResetModal(false)}>
+                Cancelar
+              </button>
+              <button className="modal-confirm-btn-danger" onClick={confirmResetAll}>
+                Eliminar todo
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 2. Delete Habit Modal
+    if (habitToDeleteId) {
+      return (
+        <div className="custom-modal-overlay" onClick={() => setHabitToDeleteId(null)}>
+          <div className="custom-modal animate-pop" onClick={(e) => e.stopPropagation()}>
+            <div className="warning-icon-wrapper" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
+              <Trash2 size={28} />
+            </div>
+            <h3 className="warning-title">¿Eliminar hábito?</h3>
+            <p className="warning-desc">
+              ¿Estás seguro de que deseas eliminar este hábito? Perderás todo el progreso y el árbol que has cultivado en tu bosque.
+            </p>
+            <div className="modal-action-buttons">
+              <button className="modal-cancel-btn" onClick={() => setHabitToDeleteId(null)}>
+                Cancelar
+              </button>
+              <button className="modal-confirm-btn-danger" onClick={confirmDeleteHabit}>
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 3. Validation Empty Input Modal
+    if (showValidationModal) {
+      return (
+        <div className="custom-modal-overlay" onClick={() => setShowValidationModal(false)}>
+          <div className="custom-modal animate-pop" onClick={(e) => e.stopPropagation()}>
+            <div className="warning-icon-wrapper" style={{ background: 'rgba(247, 107, 28, 0.1)', color: '#F76B1C' }}>
+              <Info size={28} />
+            </div>
+            <h3 className="warning-title">Escribe un nombre</h3>
+            <p className="warning-desc">
+              Por favor, escribe un nombre descriptivo para tu nuevo hábito antes de crearlo.
+            </p>
+            <div className="modal-action-buttons">
+              <button className="modal-confirm-btn-primary" onClick={() => setShowValidationModal(false)}>
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 4. PIN Alert / Error Modal
+    if (showPinErrorModal) {
+      return (
+        <div className="custom-modal-overlay" onClick={() => setShowPinErrorModal(false)}>
+          <div className="custom-modal animate-pop" onClick={(e) => e.stopPropagation()}>
+            <div className="warning-icon-wrapper" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
+              <ShieldAlert size={28} />
+            </div>
+            <h3 className="warning-title">Seguridad</h3>
+            <p className="warning-desc">{pinErrorMsg}</p>
+            <div className="modal-action-buttons">
+              <button className="modal-confirm-btn-primary" onClick={() => setShowPinErrorModal(false)}>
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 5. Disable PIN Verification Modal
+    if (showDisablePinModal) {
+      const handleDisableVerify = () => {
+        if (disablePinInput === pinCode) {
+          localStorage.removeItem('habitbuddy_pin');
+          localStorage.setItem('habitbuddy_pin_enabled', 'false');
+          setPinCode(null);
+          setIsAppLocked(false);
+          setShowDisablePinModal(false);
+          setDisablePinInput('');
+          setPinErrorMsg('La seguridad por PIN ha sido desactivada correctamente.');
+          setShowPinErrorModal(true);
+        } else {
+          setDisablePinInput('');
+          setPinErrorMsg('El PIN ingresado es incorrecto. No se pudo desactivar la seguridad.');
+          setShowPinErrorModal(true);
+        }
+      };
+
+      return (
+        <div className="custom-modal-overlay" onClick={() => setShowDisablePinModal(false)}>
+          <div className="custom-modal animate-pop" onClick={(e) => e.stopPropagation()}>
+            <div className="warning-icon-wrapper" style={{ background: 'rgba(118, 75, 162, 0.1)', color: '#764BA2' }}>
+              <Lock size={28} />
+            </div>
+            <h3 className="warning-title">Confirmar PIN</h3>
+            <p className="warning-desc">Introduce tu PIN actual para desactivar la seguridad:</p>
+            
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+              <input 
+                type="password" 
+                pattern="[0-9]*" 
+                inputMode="numeric" 
+                maxLength={4} 
+                className="input-text" 
+                style={{ letterSpacing: '0.6em', textAlign: 'center', fontSize: '1.5rem', width: '120px', padding: '0.5rem' }} 
+                value={disablePinInput} 
+                onChange={(e) => setDisablePinInput(e.target.value.replace(/\D/g, ''))}
+                autoFocus
+              />
+            </div>
+
+            <div className="modal-action-buttons">
+              <button className="modal-cancel-btn" onClick={() => { setShowDisablePinModal(false); setDisablePinInput(''); }}>
+                Cancelar
+              </button>
+              <button 
+                className="modal-confirm-btn-primary" 
+                onClick={handleDisableVerify}
+                disabled={disablePinInput.length !== 4}
+                style={{ opacity: disablePinInput.length === 4 ? 1 : 0.6 }}
+              >
+                Desactivar
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+  
+  // Dashboard Screen
   const renderDashboard = () => (
     <>
       {/* Progress & Quick Stats */}
@@ -480,7 +1166,7 @@ export default function App() {
           <h3>Mis Hábitos</h3>
           {totalHabitsCount > 0 && (
             <button 
-              onClick={handleResetAll} 
+              onClick={triggerResetAll} 
               className="reset-btn"
               style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-muted-light)', opacity: 0.8 }}
             >
@@ -595,7 +1281,7 @@ export default function App() {
     </>
   );
 
-  // 2. Forest Screen (Dedicated Tab showing all habit trees growing in the garden)
+  // Forest Screen
   const renderForestScreen = () => (
     <div className="fullscreen-screen animate-slide-in" style={{ paddingBottom: '3.5rem' }}>
       <div className="screen-header">
@@ -621,8 +1307,6 @@ export default function App() {
             const targetDays = habit.targetDays || 21;
             const progress = Math.min(Math.round((completions / targetDays) * 100), 100);
             const treeInfo = getTreePhase(completions, targetDays);
-
-            // Determine if tree is mature to add leaves particle effect class
             const isTreeMature = treeInfo.phase >= 4;
 
             return (
@@ -634,7 +1318,6 @@ export default function App() {
                   setCurrentScreen('details');
                 }}
               >
-                {/* Floating glowing aura */}
                 <div 
                   className={`tree-glow-aura ${isTreeMature ? 'mature-particles' : ''}`}
                   style={{ 
@@ -647,15 +1330,12 @@ export default function App() {
                   ) : (
                     <span className="forest-tree-emoji">{habit.emoji}</span>
                   )}
-                  
-                  {/* Phase Badge Indicator */}
                   <span className="forest-tree-stage-badge">{treeInfo.icon}</span>
                 </div>
                 
                 <h4 className="forest-tree-name">{habit.name}</h4>
                 <span className="forest-tree-stage">{treeInfo.name}</span>
                 
-                {/* Circular Mini Progress */}
                 <div className="forest-tree-progress">
                   <div className="forest-progress-bar-bg">
                     <div 
@@ -673,7 +1353,7 @@ export default function App() {
     </div>
   );
 
-  // 3. Create Screen (Full Screen View)
+  // Create Screen
   const renderCreateScreen = () => {
     const activeTheme = THEMES.find(t => t.name === newHabitTheme) || THEMES[0];
     return (
@@ -687,7 +1367,6 @@ export default function App() {
         </div>
 
         <form onSubmit={handleCreateHabit} className="create-form" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', paddingBottom: '2rem' }}>
-          {/* Card 1: Hábito e Hitos Científicos */}
           <div className="glass-panel form-card" style={{ margin: 0 }}>
             <h3 className="form-card-title">🌱 Define tu Hábito</h3>
             
@@ -701,7 +1380,6 @@ export default function App() {
                 value={newHabitName}
                 onChange={(e) => setNewHabitName(e.target.value)}
                 maxLength={25}
-                required
                 autoFocus
               />
             </div>
@@ -752,7 +1430,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Card 2: Live Real-time Preview */}
           <div className="glass-panel form-card" style={{ margin: 0, paddingBottom: '1.25rem' }}>
             <h3 className="form-card-title">✨ Previsualización del Árbol</h3>
             <p className="form-card-subtitle" style={{ fontSize: '0.8rem', opacity: 0.7, margin: '-0.6rem 0 1rem 0', fontWeight: 500 }}>Así se verá tu planta creciendo en tu jardín</p>
@@ -799,11 +1476,9 @@ export default function App() {
             </div>
           </div>
 
-          {/* Card 3: Personalización Estética (Color y Icono) */}
           <div className="glass-panel form-card" style={{ margin: 0 }}>
             <h3 className="form-card-title">🎨 Estilo Visual</h3>
 
-            {/* Avatar upload / selector tab */}
             <div className="form-group" style={{ margin: 0 }}>
               <label>Icono o Imagen de Referencia</label>
               <div className="image-upload-container" style={{ margin: 0 }}>
@@ -835,7 +1510,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Emoji Selector (hidden if custom image uploaded) */}
             {!newHabitImage && (
               <div className="form-group" style={{ marginTop: '1.25rem', marginBottom: 0 }}>
                 <label>O selecciona un emoji</label>
@@ -854,7 +1528,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Theme selector */}
             <div className="form-group" style={{ marginTop: '1.25rem', marginBottom: 0 }}>
               <label>Color Temático</label>
               <div className="theme-selector" style={{ margin: 0 }}>
@@ -889,7 +1562,7 @@ export default function App() {
     );
   };
 
-  // 4. Details Screen (Full Screen View for specific habit)
+  // Details Screen
   const renderDetailsScreen = () => {
     if (!activeHabit) return null;
 
@@ -903,7 +1576,6 @@ export default function App() {
     const isConsolidated = remainingDays <= 0;
     const isTreeMature = treeInfo.phase >= 4;
 
-    // Define scientific milestones checklist based on user completions
     const milestones = [
       { day: 1, name: 'Sembrado', desc: 'Siembra de la semilla en tierra.', active: totalCompletions >= 1 },
       { day: 7, name: 'Primer Brote', desc: 'Fijación inicial del comportamiento.', active: totalCompletions >= 7 },
@@ -940,8 +1612,7 @@ export default function App() {
           <button 
             className="back-btn" 
             onClick={() => {
-              // Return to the previous tab screen (dashboard or forest)
-              setCurrentScreen(habits.includes(activeHabit) ? 'dashboard' : 'dashboard');
+              setCurrentScreen('dashboard');
             }}
           >
             <ArrowLeft size={20} />
@@ -950,10 +1621,7 @@ export default function App() {
           <h2>Detalles</h2>
         </div>
 
-        {/* Improved visual tree panel */}
         <section className="glass-panel detail-tree-card" style={{ textAlign: 'center', padding: '2rem 1.5rem' }}>
-          
-          {/* Floating glowing aura container with particle effects */}
           <div 
             className={`tree-glow-aura large-aura ${isTreeMature ? 'mature-particles' : ''}`} 
             style={{ 
@@ -967,7 +1635,6 @@ export default function App() {
               <span className="large-emoji">{activeHabit.emoji}</span>
             )}
             
-            {/* Phase Badge Icon */}
             <span className="tree-evolution-icon large-icon">{treeInfo.icon}</span>
           </div>
 
@@ -994,7 +1661,6 @@ export default function App() {
           </div>
         </section>
 
-        {/* Scientific Milestones Checklist */}
         <section className="glass-panel milestones-panel">
           <div className="milestones-header" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <ListTodo size={18} style={{ color: '#764BA2' }} />
@@ -1016,20 +1682,18 @@ export default function App() {
           </div>
         </section>
 
-        {/* Scientific Progression Alert */}
         <section className="glass-panel science-alert-panel">
           <Info size={20} className="science-icon" />
           <div className="science-text">
             <h4>Constancia Científica</h4>
             {isConsolidated ? (
-              <p>🎉 <strong>¡Hábito Consolidado!</strong> Has superado la meta de {targetDays} días. Tu cerebro ha fijado esta conducta como un proceso subconsciente y automático.</p>
+              <p>🎉 <strong>¡Hábito Consolidado!</strong> Has superado la meta de {targetDays} días. Tu cerebro ha fijado esta conducta como un process subconsciente y automático.</p>
             ) : (
               <p>💪 Te faltan <strong>{remainingDays} días</strong> completados para consolidar este hábito. Según la ciencia del comportamiento, alcanzar los {targetDays} días fijará esta rutina de forma permanente en tu mente.</p>
             )}
           </div>
         </section>
 
-        {/* Statistics Grid */}
         <section className="stats-container" style={{ marginBottom: '1.5rem' }}>
           <div className="glass-panel stat-box">
             <span className="stat-value" style={{ color: '#FF5A79' }}>
@@ -1047,7 +1711,6 @@ export default function App() {
           </div>
         </section>
 
-        {/* Month Calendar History Grid */}
         <section className="glass-panel calendar-history-panel">
           <div className="calendar-header" style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h4 style={{ margin: 0, fontWeight: '700', fontSize: '1rem' }}>Registro de {currentMonthName}</h4>
@@ -1085,7 +1748,7 @@ export default function App() {
         <div style={{ marginTop: '2rem', padding: '0 0.5rem' }}>
           <button 
             type="button" 
-            onClick={() => handleDeleteHabit(activeHabit.id)} 
+            onClick={() => triggerDeleteHabit(activeHabit.id)} 
             className="delete-habit-full-btn"
           >
             <Trash2 size={16} style={{ marginRight: '6px' }} />
@@ -1095,6 +1758,28 @@ export default function App() {
       </div>
     );
   };
+
+  if (isLoading) {
+    return (
+      <div className="app-container fullscreen-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: '1rem', color: 'var(--text-main-light)' }}>
+        <div style={{ fontSize: '2.5rem', animation: 'float 2s ease-in-out infinite' }}>🌱</div>
+        <h3 style={{ margin: 0, fontWeight: 600 }}>Cargando HabitBuddy...</h3>
+        <p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.6 }}>Iniciando base de datos SQLite</p>
+      </div>
+    );
+  }
+
+  if (!isOnboarded) {
+    return renderOnboarding();
+  }
+
+  if (!pinCode) {
+    return renderPinSetup();
+  }
+
+  if (isAppLocked) {
+    return renderPinLock();
+  }
 
   return (
     <div className={`app-container ${currentScreen === 'create' || currentScreen === 'details' ? 'fullscreen-container' : ''}`}>
@@ -1109,37 +1794,22 @@ export default function App() {
           <div style={{ display: 'flex', gap: '0.2rem' }}>
             <button 
               className="theme-toggle-btn" 
-              onClick={toggleSound}
-              title={soundEnabled ? "Desactivar sonidos" : "Activar sonidos"}
+              onClick={() => setShowSettingsModal(true)}
+              title="Ajustes"
             >
-              {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
-            </button>
-            <button 
-              className="theme-toggle-btn" 
-              onClick={toggleTheme}
-              title={isDarkMode ? "Modo Claro" : "Modo Oscuro"}
-            >
-              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+              <Settings size={20} />
             </button>
           </div>
         </header>
       )}
 
       {/* Screen Router */}
-      {isLoading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh', gap: '1rem', color: 'var(--text-main-light)' }}>
-          <div style={{ fontSize: '2.5rem', animation: 'float 2s ease-in-out infinite' }}>🌱</div>
-          <h3 style={{ margin: 0, fontWeight: 600 }}>Cargando HabitBuddy...</h3>
-          <p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.6 }}>Iniciando base de datos SQLite</p>
-        </div>
-      ) : (
-        <>
-          {currentScreen === 'dashboard' && renderDashboard()}
-          {currentScreen === 'forest' && renderForestScreen()}
-          {currentScreen === 'create' && renderCreateScreen()}
-          {currentScreen === 'details' && renderDetailsScreen()}
-        </>
-      )}
+      <>
+        {currentScreen === 'dashboard' && renderDashboard()}
+        {currentScreen === 'forest' && renderForestScreen()}
+        {currentScreen === 'create' && renderCreateScreen()}
+        {currentScreen === 'details' && renderDetailsScreen()}
+      </>
 
       {/* Premium Bottom Navigation Bar (Shown only on Dashboard & Forest Tabs) */}
       {(currentScreen === 'dashboard' || currentScreen === 'forest') && (
@@ -1172,6 +1842,10 @@ export default function App() {
           </button>
         </nav>
       )}
+
+      {/* Modals & Settings Overlay */}
+      {renderSettingsModal()}
+      {renderCustomModals()}
 
     </div>
   );
